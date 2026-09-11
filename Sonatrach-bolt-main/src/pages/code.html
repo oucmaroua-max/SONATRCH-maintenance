@@ -1,0 +1,496 @@
+<!DOCTYPE html><html class="scroll-smooth" lang="fr" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Système de Suivi des Travaux de Maintenance | Sonatrach - Raffinerie d'Alger</title>
+<!-- Google Fonts: Inter & IBM Plex Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Font Awesome for Icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<!-- Tailwind CSS CDN with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Custom Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sonatrach: {
+              DEFAULT: '#F47920',
+              50: '#FFF7ED',
+              100: '#FFEDD5',
+              200: '#FED7AA',
+              600: '#EA580C',
+              700: '#C2410C',
+              dark: '#D96510'
+            },
+            industrial: {
+              slate: '#1E293B',
+              muted: '#64748B',
+              surface: '#F8FAFC',
+              card: '#FFFFFF',
+              border: '#E2E8F0'
+            }
+          },
+          fontFamily: {
+            sans: ['"IBM Plex Sans"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Page Styles -->
+<style data-purpose="custom-decorations">
+    .bg-grid-pattern {
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    }
+    .hero-glow {
+      background: radial-gradient(circle at 50% 20%, rgba(244, 121, 32, 0.09) 0%, rgba(255, 255, 255, 0) 70%);
+    }
+  </style>
+<!-- END: Custom Page Styles -->
+</head>
+<body class="bg-[#F8F9FA] text-slate-800 font-sans antialiased min-h-screen flex flex-col selection:bg-sonatrach selection:text-white">
+<!-- BEGIN: Top Institutional Alert Bar -->
+<aside class="bg-slate-900 text-slate-300 text-xs py-2 px-4 border-b border-slate-800" data-purpose="institutional-banner">
+<div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+<div class="flex items-center space-x-3">
+
+<span class="hidden sm:inline text-slate-400">|</span>
+<span class="text-slate-300">Division Raffinage &amp; Pétrochimie (RPA) — Site de Sidi Arcine / Baraki</span>
+</div>
+<div class="flex items-center space-x-4 text-[11px] text-slate-400">
+<span class="hidden md:inline"><i class="fa-solid fa-clock mr-1 text-slate-500"></i>Heure Serveur (UTC+1) : <span id="server-time" class="">15:39:21</span></span>
+<span class="hidden md:inline">|</span>
+
+</div>
+</div>
+</aside>
+<!-- END: Top Institutional Alert Bar -->
+<!-- BEGIN: Main Header -->
+<header class="bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 transition-shadow">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+<!-- Brand & Site Identity -->
+<div class="flex items-center space-x-4">
+<!-- Official Logo Provided in DataStore -->
+<a class="flex items-center focus:outline-none focus:ring-2 focus:ring-sonatrach rounded-lg p-1" href="#" title="Sonatrach - Accueil">
+<img alt="Logo Officiel SONATRACH" class="h-14 w-auto object-contain drop-shadow-sm transition-transform duration-200 hover:scale-[1.02]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqph5LeHN-OTbYnkHUGoMU2QfghI56fUcnU3JecgzRqFVn6TAGUVRUk65tVzijJxPM4eTttSCYA0JKoSNVWtHsMkrCmy9nbvaSxq97seyp16jE_5PvSl_ojQn1QS6mt7poAzi5N8ZxsGiEb40LlzxdmWx5H97RKHM3erQEUJpxDC0l4RtnDalzAeHBn_6I0P0iJP4Ey0lXrv8vx96bHEv1MiO6jlRoW3AWXP2kU-kq6N8mYujYc1GiGJ5wvLvYPETqFg">
+</a>
+<div class="border-l border-slate-200 pl-4">
+<p class="text-sm font-bold text-slate-900 uppercase tracking-tight">Raffinerie d'Alger</p>
+<p class="text-xs text-slate-500 font-medium tracking-wide">Direction Maintenance</p>
+</div>
+</div>
+<!-- Quick Action: Access portal button -->
+<div class="flex items-center space-x-3">
+<a class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-sonatrach hover:bg-sonatrach-dark shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sonatrach" data-purpose="direct-login-anchor" href="#auth-card">
+<i class="fa-solid fa-lock mr-2 text-xs opacity-90"></i>
+<span class="">Espace Connexion</span>
+</a>
+</div>
+</div>
+</header>
+<!-- END: Main Header -->
+<!-- BEGIN: Main Content Container -->
+<main class="flex-grow">
+<!-- BEGIN: Hero Section -->
+<section class="relative bg-white border-b border-slate-200 py-16 lg:py-24 bg-grid-pattern hero-glow overflow-hidden">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<div class="max-w-3xl mx-auto text-center">
+<!-- Institutional Badge -->
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-sonatrach-50 text-sonatrach border border-sonatrach-100 mb-6">
+<span class="w-2 h-2 rounded-full bg-sonatrach animate-pulse"></span>
+            Plateforme Institutionnelle Intégrée de Maintenance
+          </div>
+<!-- Majestic Title -->
+<h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight">
+            Système de Suivi des Travaux de Maintenance
+          </h1>
+<!-- Subtitle -->
+<p class="mt-3 text-lg sm:text-xl font-medium text-sonatrach">
+            Direction Maintenance — Raffinerie d'Alger (Sidi Arcine)
+          </p>
+<!-- Core Purpose Description -->
+<p class="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
+            Outil centralisé de gouvernance technique dédié au pilotage de la maintenance préventive et corrective des unités de raffinage, au suivi en temps réel des ordres de travail (OT), à la coordination inter-services et à l’encadrement rigoureux des délégations de signature.
+          </p>
+<!-- CTA Buttons -->
+<div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+<a class="w-full sm:w-auto inline-flex items-center justify-center px-7 py-3.5 rounded-lg text-base font-bold text-white bg-sonatrach hover:bg-sonatrach-dark shadow-md hover:shadow-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sonatrach group" href="#auth-card">
+<span class="">Accéder à l'espace de connexion</span>
+<i class="fa-solid fa-arrow-right ml-2 text-sm transition-transform duration-200 group-hover:translate-x-1"></i>
+</a>
+<a class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3.5 rounded-lg text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-sm hover:border-slate-400 transition duration-200" href="#perimetre">
+<i class="fa-solid fa-circle-info mr-2 text-slate-400"></i>
+              Découvrir le périmètre
+            </a>
+</div>
+<!-- Protocol Safety Micro-Badge -->
+<div class="mt-8 flex items-center justify-center gap-6 text-xs text-slate-400">
+<span class="flex items-center"><i class="fa-solid fa-shield-cat text-sonatrach mr-1.5"></i>Normes ATEX &amp; HSE Sonatrach</span>
+<span class="flex items-center"><i class="fa-solid fa-server text-emerald-500 mr-1.5"></i>Disponibilité 24/7</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Hero Section -->
+<!-- BEGIN: Key Performance Indicators Section -->
+<section class="py-12 bg-white border-b border-slate-200" data-purpose="site-key-indicators">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- KPI 1: Disponibilité Opérationnelle -->
+<div class="bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 relative overflow-hidden group hover:border-sonatrach/40 transition">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disponibilité Globale</p>
+<h3 class="text-3xl font-extrabold text-slate-900 mt-1">98.4 %</h3>
+</div>
+<div class="w-12 h-12 rounded-xl bg-orange-100/70 text-sonatrach flex items-center justify-center text-xl">
+<i class="fa-solid fa-gauge-high"></i>
+</div>
+</div>
+<p class="mt-3 text-xs text-slate-500 flex items-center">
+<span class="text-emerald-600 font-semibold mr-1.5"><i class="fa-solid fa-arrow-trend-up mr-1"></i>+0.6%</span>
+              Unités de raffinage Sidi Arcine en service optimal
+            </p>
+</div>
+<!-- KPI 2: Conformité HSE -->
+<div class="bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 relative overflow-hidden group hover:border-sonatrach/40 transition">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Conformité Sécurité &amp; HSE</p>
+<h3 class="text-3xl font-extrabold text-slate-900 mt-1">100 %</h3>
+</div>
+<div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+<i class="fa-solid fa-shield-check"></i>
+</div>
+</div>
+<p class="mt-3 text-xs text-slate-500 flex items-center">
+<span class="text-slate-700 font-semibold mr-1.5"><i class="fa-solid fa-check-double text-emerald-500 mr-1"></i>Permis validés</span>
+              Respect strict des protocoles de cadenassage &amp; feu
+            </p>
+</div>
+<!-- KPI 3: Résolution Anomalies -->
+<div class="bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 relative overflow-hidden group hover:border-sonatrach/40 transition">
+<div class="flex items-center justify-between">
+<div>
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Clôture des Ordres de Travail</p>
+<h3 class="text-3xl font-extrabold text-slate-900 mt-1">94.8 %</h3>
+</div>
+<div class="w-12 h-12 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-xl">
+<i class="fa-solid fa-clipboard-check"></i>
+</div>
+</div>
+<p class="mt-3 text-xs text-slate-500 flex items-center">
+<span class="text-sky-700 font-semibold mr-1.5"><i class="fa-solid fa-bolt mr-1"></i>Délai moyen &lt; 24h</span>
+              Sur les interventions correctives critiques
+            </p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Key Performance Indicators Section -->
+<!-- BEGIN: Operational Perimeter Section -->
+<section class="py-16 bg-[#F8F9FA] border-b border-slate-200" id="perimetre">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center max-w-2xl mx-auto mb-12">
+<h2 class="text-xs font-bold uppercase tracking-widest text-sonatrach">Infrastructures Industrielles</h2>
+<p class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">Périmètre Opérationnel</p>
+<div class="w-12 h-1 bg-sonatrach mx-auto mt-3 rounded"></div>
+<p class="mt-3 text-sm text-slate-600">
+            Supervision technique rigoureuse s'étendant à l'ensemble des installations de traitement du brut et des utilités de la raffinerie.
+          </p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Unit 1: Topping -->
+<div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-10 h-10 rounded-lg bg-orange-50 text-sonatrach flex items-center justify-center text-lg mb-4">
+<i class="fa-solid fa-smog"></i>
+</div>
+<h3 class="text-base font-bold text-slate-900 mb-1">Topping &amp; Distillation</h3>
+<p class="text-xs text-slate-500 mb-3 font-medium">Unité de Distillation Atmosphérique</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Séparation initiale du pétrole brut en coupes pétrolières primaires. Surveillance thermique et gestion de l'intégrité mécanique des colonnes.
+            </p>
+</div>
+<!-- Unit 2: Reforming -->
+<div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-10 h-10 rounded-lg bg-orange-50 text-sonatrach flex items-center justify-center text-lg mb-4">
+<i class="fa-solid fa-fire-burner"></i>
+</div>
+<h3 class="text-base font-bold text-slate-900 mb-1">Reforming Catalytique</h3>
+<p class="text-xs text-slate-500 mb-3 font-medium">Amélioration de l'indice d'octane</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Transformation des essences lourdes. Suivi continu des fours réactionnels, des compresseurs de recycle et régénération du catalyseur.
+            </p>
+</div>
+<!-- Unit 3: Hydrotraitement -->
+<div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-10 h-10 rounded-lg bg-orange-50 text-sonatrach flex items-center justify-center text-lg mb-4">
+<i class="fa-solid fa-filter"></i>
+</div>
+<h3 class="text-base font-bold text-slate-900 mb-1">Unités d'Hydrotraitement</h3>
+<p class="text-xs text-slate-500 mb-3 font-medium">Désulfuration &amp; Pureté</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Désulfuration catalytique des distillats pour répondre aux normes carburants. Contrôle haute pression et instrumentation de précision.
+            </p>
+</div>
+<!-- Unit 4: Utilités & Stockage -->
+<div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-10 h-10 rounded-lg bg-orange-50 text-sonatrach flex items-center justify-center text-lg mb-4">
+<i class="fa-solid fa-boxes-stacked"></i>
+</div>
+<h3 class="text-base font-bold text-slate-900 mb-1">Utilités &amp; Stockage</h3>
+<p class="text-xs text-slate-500 mb-3 font-medium">Centrales vapeur, eau &amp; parcs bacs</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Réseaux de fluide caloporteur, air comprimé, traitement des eaux industrielles et parc de bacs de brut et produits finis.
+            </p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Operational Perimeter Section -->
+<!-- BEGIN: Governance & Hierarchy Section -->
+<section class="py-16 bg-white border-b border-slate-200" data-purpose="hierarchical-governance">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center max-w-2xl mx-auto mb-14">
+<h2 class="text-xs font-bold uppercase tracking-widest text-sonatrach">Chaîne de Commandement Officielle</h2>
+<p class="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">Gouvernance &amp; Chaîne Hiérarchique</p>
+<div class="w-12 h-1 bg-sonatrach mx-auto mt-3 rounded"></div>
+<p class="mt-3 text-sm text-slate-600">
+            Structure organisationnelle encadrant les validations d'ordres de travaux, budgets d'intervention et délégations d'intérim.
+          </p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+<!-- Step 1: Direction Maintenance -->
+<div class="relative bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 hover:border-sonatrach transition-colors">
+<div class="flex items-center space-x-2 text-xs font-bold text-sonatrach uppercase tracking-wider mb-2">
+<span class="w-6 h-6 rounded-full bg-sonatrach text-white flex items-center justify-center text-xs">1</span>
+<span class="">Niveau 1</span>
+</div>
+<h3 class="text-base font-bold text-slate-900">Direction Maintenance</h3>
+<p class="text-xs text-slate-500 mb-3">Raffinerie d'Alger (Sidi Arcine)</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Pilotage stratégique, définition de la politique de maintenance, arbitrages budgétaires majeurs et vision globale de la disponibilité des installations.
+            </p>
+<div class="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 font-medium">
+<i class="fa-solid fa-signature text-sonatrach mr-1"></i>Délégations &amp; Arbitrages
+            </div>
+</div>
+<!-- Step 2: Sous-Direction Maintenance -->
+<div class="relative bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 hover:border-sonatrach transition-colors">
+<div class="flex items-center space-x-2 text-xs font-bold text-sonatrach uppercase tracking-wider mb-2">
+<span class="w-6 h-6 rounded-full bg-sonatrach text-white flex items-center justify-center text-xs">2</span>
+<span class="">Niveau 2</span>
+</div>
+<h3 class="text-base font-bold text-slate-900">Sous-Direction Maintenance</h3>
+<p class="text-xs text-slate-500 mb-3">Coordination Opérationnelle</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Supervision des pôles techniques, coordination inter-départements, allocation des ressources critiques et gestion des programmes d'arrêts majeurs.
+            </p>
+<div class="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 font-medium">
+<i class="fa-solid fa-diagram-project text-sonatrach mr-1"></i>Gestion des Ressources
+            </div>
+</div>
+<!-- Step 3: Départements Techniques -->
+<div class="relative bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 hover:border-sonatrach transition-colors">
+<div class="flex items-center space-x-2 text-xs font-bold text-sonatrach uppercase tracking-wider mb-2">
+<span class="w-6 h-6 rounded-full bg-sonatrach text-white flex items-center justify-center text-xs">3</span>
+<span class="">Niveau 3</span>
+</div>
+<h3 class="text-base font-bold text-slate-900">Départements Techniques</h3>
+<p class="text-xs text-slate-500 mb-3">Spécialités de Métier</p>
+<ul class="text-xs text-slate-600 space-y-1.5 leading-relaxed">
+<li class="flex items-center"><i class="fa-solid fa-chevron-right text-[9px] text-sonatrach mr-1.5"></i>Mécanique &amp; Machines Tournantes</li>
+<li class="flex items-center"><i class="fa-solid fa-chevron-right text-[9px] text-sonatrach mr-1.5"></i>Électricité &amp; Haute Tension</li>
+<li class="flex items-center"><i class="fa-solid fa-chevron-right text-[9px] text-sonatrach mr-1.5"></i>Instrumentation &amp; Régulation</li>
+<li class="flex items-center"><i class="fa-solid fa-chevron-right text-[9px] text-sonatrach mr-1.5"></i>Méthodes &amp; Préparation</li>
+</ul>
+<div class="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 font-medium">
+<i class="fa-solid fa-screwdriver-wrench text-sonatrach mr-1"></i>Expertise &amp; Études
+            </div>
+</div>
+<!-- Step 4: Services Opérationnels -->
+<div class="relative bg-[#F8FAFC] border border-slate-200 rounded-xl p-6 hover:border-sonatrach transition-colors">
+<div class="flex items-center space-x-2 text-xs font-bold text-sonatrach uppercase tracking-wider mb-2">
+<span class="w-6 h-6 rounded-full bg-sonatrach text-white flex items-center justify-center text-xs">4</span>
+<span class="">Niveau 4</span>
+</div>
+<h3 class="text-base font-bold text-slate-900">Services Opérationnels</h3>
+<p class="text-xs text-slate-500 mb-3">Équipes de Terrain &amp; Ateliers</p>
+<p class="text-xs text-slate-600 leading-relaxed">
+              Exécution sur site, émission et clôture des bons de travaux (OT), contrôle qualité immédiat, chefs d'équipes et techniciens de quart.
+            </p>
+<div class="mt-4 pt-3 border-t border-slate-200/80 text-[11px] text-slate-500 font-medium">
+<i class="fa-solid fa-helmet-safety text-sonatrach mr-1"></i>Exécution Terrain 24/7
+            </div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Governance & Hierarchy Section -->
+<!-- BEGIN: Direct Authentication Portal Section -->
+<section class="py-16 bg-[#F8F9FA]" data-purpose="authentication-access" id="auth-card">
+<div class="max-w-xl mx-auto px-4 sm:px-6">
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-10 relative">
+<!-- Top Accent Bar -->
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-sonatrach rounded-t-2xl"></div>
+<div class="text-center mb-8">
+<div class="inline-flex p-3 rounded-full bg-orange-50 text-sonatrach mb-3">
+<i class="fa-solid fa-user-lock text-2xl"></i>
+</div>
+<h2 class="text-2xl font-bold text-slate-900">Espace Utilisateur Authentifié</h2>
+<p class="text-xs text-slate-500 mt-1">Connexion sécurisée au système de maintenance GMAO</p>
+</div>
+<!-- Quick Authentication Form / Redirection -->
+<form action="login.html" class="space-y-4" method="GET" onsubmit="event.preventDefault(); window.location.href='login.html';">
+<!-- Identifiant -->
+<div>
+<label class="block text-xs font-semibold text-slate-700 uppercase mb-1" for="matricule">Matricule Sonatrach</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">
+<i class="fa-solid fa-id-card"></i>
+</span>
+<input class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sonatrach focus:border-sonatrach transition" id="matricule" name="matricule" placeholder="Ex: SH-54980" required="" type="text">
+</div>
+</div>
+<!-- Mot de passe -->
+<div>
+<div class="flex justify-between items-center mb-1">
+<label class="block text-xs font-semibold text-slate-700 uppercase" for="password">Mot de passe</label>
+<a class="text-xs text-sonatrach hover:underline" href="#support">Mot de passe oublié ?</a>
+</div>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-sm">
+<i class="fa-solid fa-key"></i>
+</span>
+<input class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sonatrach focus:border-sonatrach transition" id="password" name="password" placeholder="••••••••••••" required="" type="password">
+</div>
+</div>
+<!-- Bouton de Soumission -->
+<div class="pt-2">
+<button class="w-full py-3 px-4 bg-sonatrach hover:bg-sonatrach-dark text-white font-bold text-sm rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sonatrach" type="submit">
+<span class="">Ouvrir ma session de travail</span>
+<i class="fa-solid fa-right-to-bracket text-xs"></i>
+</button>
+</div>
+<div class="text-center pt-2">
+<a class="text-xs font-medium text-slate-600 hover:text-sonatrach transition" href="login.html">
+                Accéder directement à la page dédiée de connexion complète →
+              </a>
+</div>
+</form>
+<!-- Security Footnote -->
+<div class="mt-6 pt-4 border-t border-slate-100 text-center">
+<p class="text-[11px] text-slate-400 flex items-center justify-center">
+<i class="fa-solid fa-lock text-emerald-500 mr-1.5 text-[10px]"></i>
+              Accès réservé exclusivement au personnel habilité de la Raffinerie d'Alger.
+            </p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Direct Authentication Portal Section -->
+</main>
+<!-- END: Main Content Container -->
+<!-- BEGIN: Institutional Footer -->
+<footer class="bg-slate-900 text-slate-300 text-sm border-t-4 border-sonatrach" data-purpose="institutional-footer" id="support">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+<!-- Column 1: Institutional Identity -->
+<div class="space-y-3">
+<p class="text-base font-bold text-white tracking-wider uppercase">SONATRACH</p>
+<p class="text-xs text-slate-400 leading-relaxed">
+            Activité Raffinage et Pétrochimie (RPA)<br>
+            Direction Raffinage • Raffinerie d'Alger<br>
+            Site Industriel de Sidi Arcine, Commune de Baraki, Alger.
+          </p>
+<div class="text-xs text-sonatrach font-semibold">
+            Direction Maintenance
+          </div>
+</div>
+<!-- Column 2: Assistance & Contact GMAO -->
+<div class="space-y-3">
+<p class="text-xs font-bold uppercase tracking-wider text-white">Support &amp; Assistance Technique</p>
+<ul class="text-xs text-slate-400 space-y-2">
+<li class="flex items-center">
+<i class="fa-solid fa-phone text-sonatrach mr-2 w-4"></i>Poste Interne : 44-21 / 44-22
+            </li>
+<li class="flex items-center">
+<i class="fa-solid fa-envelope text-sonatrach mr-2 w-4"></i>gmao.alger@sonatrach.dz
+            </li>
+<li class="flex items-center">
+<i class="fa-solid fa-location-dot text-sonatrach mr-2 w-4"></i>Bâtiment Maintenance, Bureau 104
+            </li>
+</ul>
+</div>
+<!-- Column 3: Sécurité Industrielle & HSE -->
+<div class="space-y-3">
+<p class="text-xs font-bold uppercase tracking-wider text-white">Sécurité &amp; Réglementation</p>
+<p class="text-xs text-slate-400 leading-relaxed">
+            Les interventions programmées sont assujetties au Permis de Travail Sonatrach (PT), à l’analyse de risques de poste et à l’évaluation ATEX stricte.
+          </p>
+<span class="inline-flex items-center text-[10px] bg-slate-800 text-amber-400 px-2.5 py-1 rounded border border-amber-400/30">
+<i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Zone Industrielle Classée Seveso
+          </span>
+</div>
+<!-- Column 4: Mentions & Système -->
+<div class="space-y-3">
+<p class="text-xs font-bold uppercase tracking-wider text-white">Statut du Système</p>
+<ul class="text-xs text-slate-400 space-y-1.5">
+<li class="flex items-center justify-between">
+<span class="">Version Plateforme :</span>
+<span class="font-mono text-slate-300">v4.2.0-SDA</span>
+</li>
+<li class="flex items-center justify-between">
+<span class="">Base GMAO :</span>
+<span class="text-emerald-400 font-semibold">Connectée</span>
+</li>
+<li class="flex items-center justify-between">
+<span class="">Contrôle d'accès :</span>
+<span class="text-slate-300">SSO Intranet Actif</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Bottom Bar -->
+<div class="mt-10 pt-6 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-3">
+<p class="">© <span id="current-year" class="">2026</span> SONATRACH — Société Nationale pour la Recherche, la Production, le Transport, la Transformation, et la Commercialisation des Hydrocarbures. Tous droits réservés.</p>
+<p class="text-[11px] font-mono">Système de Suivi des Travaux de Maintenance • Raffinerie Sidi Arcine</p>
+</div>
+</div>
+</footer>
+<!-- END: Institutional Footer -->
+<!-- BEGIN: Dynamic Timestamp Script -->
+<script data-purpose="server-clock-and-year">
+    (function updateClockAndYear() {
+      // Set Year
+      const yearEl = document.getElementById('current-year');
+      if (yearEl) {
+        yearEl.textContent = new Date().getFullYear();
+      }
+
+      // Update Real-Time Clock
+      function refreshTime() {
+        const timeEl = document.getElementById('server-time');
+        if (timeEl) {
+          const now = new Date();
+          timeEl.textContent = now.toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+          });
+        }
+      }
+      refreshTime();
+      setInterval(refreshTime, 1000);
+    })();
+  </script>
+<!-- END: Dynamic Timestamp Script -->
+
+
+</body></html>

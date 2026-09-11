@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { font-family: 'IBM Plex Sans', sans-serif; color: #1e293b; background: #f8fafc; font-synthesis: none; }
+body { margin: 0; min-width: 320px; }
+button, input, select, textarea { font: inherit; }
+.heading { font-family: 'Manrope', sans-serif; }
+.industrial-grid { background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 0.7px, transparent 0.7px); background-size: 20px 20px; }
+.hero-grid { background-image: linear-gradient(to right, rgba(15,23,42,.035) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,.035) 1px, transparent 1px); background-size: 40px 40px; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-rise { animation: rise .5s ease-out both; }
