@@ -1,5 +1,5 @@
 import { workOrders as seed } from '@/data';
-import type { WorkOrder } from '@/types';
+import { isFeedbackApproved, type WorkFeedback, type WorkOrder } from '@/types';
 
 const STORAGE_KEY = 'sonatrach-work-orders';
 
@@ -42,4 +42,18 @@ export function updateWorkOrder(id: string, patch: Partial<WorkOrder>) {
   orders = orders.map((order) => (order.id === id ? { ...order, ...patch } : order));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
   emit();
+}
+
+export function addWorkFeedback(id: string, feedback: WorkFeedback) {
+  const order = getWorkOrder(id);
+  if (!order) return;
+  const approved = isFeedbackApproved(feedback.decision);
+  const reviewNote = `[Feedback ${feedback.role} — ${feedback.decision}] ${feedback.comment}`;
+  updateWorkOrder(id, {
+    feedbacks: [...(order.feedbacks ?? []), feedback],
+    archived: approved,
+    status: approved ? 'Terminé' : 'En cours',
+    progress: approved ? 100 : Math.min(order.progress || 100, 80),
+    observation: approved ? order.observation : [order.observation, reviewNote].filter(Boolean).join('\n\n'),
+  });
 }

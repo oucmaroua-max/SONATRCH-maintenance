@@ -118,15 +118,17 @@ export function WorkOrderDetailPage({ id }: { id: string }) {
             </span>
           </div>
 
-          {saved && (
-            <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              <CheckCircle2 size={19} className="mt-0.5 shrink-0 text-emerald-600" />
-              <span>
-                <strong className="text-emerald-900">Modifications enregistrées.</strong> L'ordre {order.id} a été mis à jour dans le registre.
-              </span>
+          {saved ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-10 text-center">
+              <CheckCircle2 className="mx-auto text-emerald-600" size={44} />
+              <h2 className="heading mt-4 text-2xl font-extrabold text-emerald-900">Modifications enregistrées</h2>
+              <p className="mt-2 text-sm text-emerald-800">L'ordre {order.id} a été mis à jour dans le registre.</p>
+              <button onClick={() => navigate('orders')} className="mt-6 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white">
+                Liste des travaux
+              </button>
             </div>
-          )}
-
+          ) : (
+            <>
           <section className="mb-6 grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Unité</p>
@@ -256,6 +258,25 @@ export function WorkOrderDetailPage({ id }: { id: string }) {
               </div>
             </div>
           </form>
+            </>
+          )}
+          {order.feedbacks && order.feedbacks.length > 0 && (
+            <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-slate-50/70 px-6 py-4">
+                <h2 className="font-bold text-slate-900">Feedbacks de l'encadrement</h2>
+                <p className="text-xs text-slate-500">Avis du directeur, sous-directeur, chef de département ou chef de service.</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {order.feedbacks.map((item, index) => (
+                  <div key={`${item.date}-${index}`} className="px-6 py-4">
+                    <p className="text-sm font-bold text-slate-800">{item.author} · {item.role}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{item.date}</p>
+                    <p className="mt-2 text-sm text-slate-600">{item.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </main>
     </AppShell>
