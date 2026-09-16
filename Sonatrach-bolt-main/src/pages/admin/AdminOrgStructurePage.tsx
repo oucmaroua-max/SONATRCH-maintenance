@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, Building2, ChevronRight, Layers, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { AppShell } from '@/components/layout/Shell';
+import { AppShell } from '@/components/Shell';
 import { Modal } from '@/components/ui/Modal';
 import {
   departments as seedDepartments,

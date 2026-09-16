@@ -6,7 +6,10 @@ import { getSessionUser, subscribeSession, userInitials } from '@/session';
 
 export const sonatrachLogo = logo;
 
-export type PageKey = 'home' | 'login' | 'dashboard' | 'orders' | 'new-order';
+//export type PageKey = 'home' | 'login' | 'dashboard' | 'orders' | 'new-order';
+export type PageKey =
+  | 'home' | 'login' | 'dashboard' | 'orders' | 'new-order'
+  | 'admin-users' | 'admin-user-form' | 'admin-user-detail' | 'admin-org';
 
 const links: { key: PageKey; label: string }[] = [
   { key: 'home', label: 'Accueil' },
@@ -134,65 +137,6 @@ function HomeHeader() {
   );
 }
 
-/*export function Header({ active }: { active: PageKey }) {
-  const [open, setOpen] = useState(false);
-  const user = useSyncExternalStore(subscribeSession, getSessionUser);
-
-  // Page d'accueil : header institutionnel dédié.
-  if (active === 'home') return <HomeHeader />;
-
-  // Autres pages : header applicatif inchangé.
-  return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
-      <div className="mx-auto flex h-[88px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <button onClick={() => navigate('home')} aria-label="Accueil"><Brand /></button>
-        <nav className="hidden items-center gap-1 lg:flex">
-          {links.map(link => (
-            <button
-              key={link.key}
-              onClick={() => navigate(link.key)}
-              className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
-                active === link.key ? 'border border-orange-200 bg-orange-50 text-sonatrach' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3">
-          <button className="relative hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 sm:block">
-            <Bell size={19} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sonatrach" />
-          </button>
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-bold text-slate-900">{user.name}</p>
-            <p className="text-[11px] font-medium text-slate-500">{user.role}</p>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-xs font-bold text-sonatrach">
-            {userInitials(user.name)}
-          </div>
-          <button className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </div>
-      {open && (
-        <div className="border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
-          {links.map(link => (
-            <button
-              key={link.key}
-              onClick={() => { navigate(link.key); setOpen(false); }}
-              className={`block w-full rounded-lg px-3 py-3 text-left text-sm font-semibold ${
-                active === link.key ? 'bg-orange-50 text-sonatrach' : 'text-slate-700'
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </header>
-  );
-}*/
 export function Header({ active }: { active: PageKey }) {
   const [open, setOpen] = useState(false);
   const user = useSyncExternalStore(subscribeSession, getSessionUser);

@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Copy, KeyRound, Lock, RefreshCw, Save } from 'lucide-react';
-import { AppShell, navigate } from '@/components/layout/Shell';
+import { AppShell, navigate } from '@/components/Shell';
 import { OrgCascadeSelect } from '@/components/ui/OrgCascadeSelect';
 import { users as seedUsers } from '@/data';
 import type { Role, UserStatus } from '@/types';

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ArrowLeft, CheckCircle2, ClipboardList, History, Lock, Mail, Pencil, ShieldCheck, User as UserIcon, Wrench } from 'lucide-react';
-import { AppShell, navigate } from '@/components/layout/Shell';
+import { AppShell, navigate } from '@/components/Shell';
 import { RoleBadge, UserStatusBadge } from '@/components/ui/AdminBadges';
 import { auditLog, userPositionHistory, users, workOrders } from '@/data';
 import { getDepartmentName, getServiceName, getSubDirectionName } from '@/data';

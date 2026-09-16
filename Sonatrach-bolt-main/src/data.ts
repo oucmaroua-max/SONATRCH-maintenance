@@ -1,4 +1,5 @@
-import type { WorkOrder } from '@/types';
+//import type { WorkOrder } from '@/types';
+import type { AuditLogEntry, Department, Service, SubDirection, User, UserPositionHistory, WorkOrder } from '@/types';
 
 export const workOrders: WorkOrder[] = [
   {
@@ -111,3 +112,110 @@ export const activity = [
   { time: '08:55', title: 'Nouvelle anomalie signalée', detail: 'Vibration anormale · Pompe P-101A', tone: 'red' },
   { time: '08:31', title: 'Intervention clôturée', detail: 'Armoire HT · A. Merouane', tone: 'blue' },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Organisation                                                        */
+/* ------------------------------------------------------------------ */
+
+export const subDirections: SubDirection[] = [
+  { id: 'sd-1', name: 'Sous-direction Maintenance', abrv: 'SDM' },
+  { id: 'sd-2', name: 'Sous-direction Exploitation', abrv: 'SDE' },
+  { id: 'sd-3', name: "Sous-direction HSE", abrv: 'SDH' },
+];
+
+export const departments: Department[] = [
+  { id: 'dep-1', name: 'Département Mécanique', abrv: 'MEC', sub_direction_id: 'sd-1' },
+  { id: 'dep-2', name: 'Département Instrumentation', abrv: 'INS', sub_direction_id: 'sd-1' },
+  { id: 'dep-3', name: 'Département Procédé', abrv: 'PRC', sub_direction_id: 'sd-2' },
+  { id: 'dep-4', name: 'Département Sécurité', abrv: 'SEC', sub_direction_id: 'sd-3' },
+];
+
+export const services: Service[] = [
+  { id: 'svc-1', name: 'Service Rotatives', abrv: 'ROT', department_id: 'dep-1' },
+  { id: 'svc-2', name: 'Service Statiques', abrv: 'STT', department_id: 'dep-1' },
+  { id: 'svc-3', name: 'Service Régulation', abrv: 'REG', department_id: 'dep-2' },
+  { id: 'svc-4', name: 'Service Analyseurs', abrv: 'ANL', department_id: 'dep-2' },
+  { id: 'svc-5', name: "Service Prévention", abrv: 'PRV', department_id: 'dep-4' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Users                                                               */
+/* ------------------------------------------------------------------ */
+
+export const users: User[] = [
+  {
+    id: 'u-001', name: 'Karim Benali', username: 'k.benali', email: 'k.benali@sonatrach.dz',
+    role: 'Directeur', status: 'active', is_admin: true,
+    sub_direction: 'sd-1', department: 'dep-1', service: 'svc-1',
+    created_at: '2024-01-15', approved_by: '—', approved_at: '2024-01-15',
+  },
+  {
+    id: 'u-002', name: 'Amine Hadjadj', username: 'a.hadjadj', email: 'a.hadjadj@sonatrach.dz',
+    role: 'Sous-directeur', status: 'active', is_admin: true,
+    sub_direction: 'sd-1', department: 'dep-2', service: 'svc-3',
+    created_at: '2024-02-10', approved_by: 'Karim Benali', approved_at: '2024-02-11',
+  },
+  {
+    id: 'u-003', name: 'Yacine Cherif', username: 'y.cherif', email: 'y.cherif@sonatrach.dz',
+    role: 'Chef de département', status: 'active', is_admin: false,
+    sub_direction: 'sd-1', department: 'dep-1', service: 'svc-1',
+    created_at: '2024-03-01', approved_by: 'Karim Benali', approved_at: '2024-03-02',
+  },
+  {
+    id: 'u-004', name: 'Sofiane Mansouri', username: 's.mansouri', email: 's.mansouri@sonatrach.dz',
+    role: 'Chef de service', status: 'active', is_admin: false,
+    sub_direction: 'sd-1', department: 'dep-1', service: 'svc-2',
+    created_at: '2024-03-15', approved_by: 'Amine Hadjadj', approved_at: '2024-03-16',
+  },
+  {
+    id: 'u-005', name: 'Nadir Belkacem', username: 'n.belkacem', email: 'n.belkacem@sonatrach.dz',
+    role: 'Employé', status: 'pending', is_admin: false,
+    sub_direction: 'sd-1', department: 'dep-2', service: 'svc-3',
+    created_at: '2026-09-12',
+  },
+  {
+    id: 'u-006', name: 'Riad Saidi', username: 'r.saidi', email: 'r.saidi@sonatrach.dz',
+    role: 'Employé', status: 'active', is_admin: false,
+    sub_direction: 'sd-2', department: 'dep-3', service: 'svc-4',
+    created_at: '2025-06-20', approved_by: 'Amine Hadjadj', approved_at: '2025-06-21',
+  },
+  {
+    id: 'u-007', name: 'Toufik Larbi', username: 't.larbi', email: 't.larbi@sonatrach.dz',
+    role: 'Employé', status: 'suspended', is_admin: false,
+    sub_direction: 'sd-1', department: 'dep-1', service: 'svc-1',
+    created_at: '2025-01-08', approved_by: 'Karim Benali', approved_at: '2025-01-09',
+  },
+  {
+    id: 'u-008', name: 'Walid Bouzid', username: 'w.bouzid', email: 'w.bouzid@sonatrach.dz',
+    role: 'Chef de service', status: 'inactive', is_admin: false,
+    sub_direction: 'sd-3', department: 'dep-4', service: 'svc-5',
+    created_at: '2024-09-05', approved_by: 'Karim Benali', approved_at: '2024-09-06',
+  },
+];
+
+export const userPositionHistory: UserPositionHistory[] = [
+  { id: 'h-1', user_id: 'u-003', field: 'Rôle', old_value: 'Employé', new_value: 'Chef de département', changed_by: 'Karim Benali', changed_at: '2025-05-01' },
+  { id: 'h-2', user_id: 'u-003', field: 'Service', old_value: 'Service Régulation', new_value: 'Service Rotatives', changed_by: 'Karim Benali', changed_at: '2025-05-01' },
+  { id: 'h-3', user_id: 'u-004', field: 'Rôle', old_value: 'Employé', new_value: 'Chef de service', changed_by: 'Amine Hadjadj', changed_at: '2025-03-10' },
+  { id: 'h-4', user_id: 'u-007', field: 'Statut', old_value: 'Actif', new_value: 'Suspendu', changed_by: 'Karim Benali', changed_at: '2026-08-20' },
+];
+
+export const auditLog: AuditLogEntry[] = [
+  { id: 'a-1', target_user_id: 'u-001', action: 'Création du compte', performed_by: 'Système', performed_at: '2024-01-15' },
+  { id: 'a-2', target_user_id: 'u-002', action: 'Approbation', performed_by: 'Karim Benali', performed_at: '2024-02-11', details: 'Compte approuvé' },
+  { id: 'a-3', target_user_id: 'u-005', action: 'Demande en attente', performed_by: 'Système', performed_at: '2026-09-12', details: 'Inscription en attente d\'approbation' },
+  { id: 'a-4', target_user_id: 'u-007', action: 'Suspension', performed_by: 'Karim Benali', performed_at: '2026-08-20', details: 'Non-respect des procédures HSE' },
+  { id: 'a-5', target_user_id: 'u-003', action: 'Promotion', performed_by: 'Karim Benali', performed_at: '2025-05-01', details: 'Employé → Chef de département' },
+  { id: 'a-6', target_user_id: 'u-004', action: 'Promotion', performed_by: 'Amine Hadjadj', performed_at: '2025-03-10', details: 'Employé → Chef de service' },
+];
+export function getSubDirectionName(id: string) {
+  return subDirections.find((sd) => sd.id === id)?.name ?? '—';
+}
+
+export function getDepartmentName(id: string) {
+  return departments.find((d) => d.id === id)?.name ?? '—';
+}
+
+export function getServiceName(id: string) {
+  return services.find((s) => s.id === id)?.name ?? '—';
+}
