@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory } from 'lucide-react';
+import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory, Users, Building2 } from 'lucide-react';
 import { Brand } from '@/components/Brand';
 import logo from '@/assets/sonatrach-logo.png';
 import { getSessionUser, subscribeSession, userInitials } from '@/session';
@@ -18,6 +18,12 @@ const links: { key: PageKey; label: string }[] = [
   { key: 'new-order', label: 'Nouveau travail' },
 ];
 
+// Liens de navigation propres à l'espace admin (indépendants des liens "travaux").
+const adminLinks: { key: PageKey; label: string; icon: typeof Users }[] = [
+  { key: 'admin-users', label: 'Utilisateurs', icon: Users },
+  { key: 'admin-org', label: 'Organisation', icon: Building2 },
+];
+
 const homeLinks: { key: PageKey | 'about'; label: string; icon: typeof Home }[] = [
   { key: 'home', label: 'Accueil', icon: Home },
   { key: 'about', label: 'À propos de nous', icon: FileText },
@@ -30,7 +36,12 @@ export function navigate(page: PageKey | string) {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-export function TopBar() {
+// Une page est considérée "admin" si sa clé commence par "admin".
+function isAdminPage(active: PageKey) {
+  return active.startsWith('admin');
+}
+
+export function TopBar({ admin = false }: { admin?: boolean }) {
   const [time, setTime] = useState('');
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString('fr-FR'));
@@ -39,11 +50,13 @@ export function TopBar() {
     return () => window.clearInterval(timer);
   }, []);
   return (
-    <div className="bg-slate-950 px-4 py-2 text-[11px] text-slate-300">
+    <div className={`px-4 py-2 text-[11px] text-slate-300 ${admin ? 'bg-slate-900' : 'bg-slate-950'}`}>
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-          <span className="font-semibold text-slate-200">Division Raffinage & Pétrochimie (RPA)</span>
+          <span className={`h-2 w-2 animate-pulse rounded-full ${admin ? 'bg-orange-400' : 'bg-emerald-400'}`} />
+          <span className="font-semibold text-slate-200">
+            {admin ? 'Espace Administration · Sécurité & Accès' : 'Division Raffinage & Pétrochimie (RPA)'}
+          </span>
           <span className="hidden text-slate-600 sm:inline">|</span>
           <span className="hidden text-slate-400 sm:inline">Site Industriel de Sidi Arcine / Baraki</span>
         </div>
@@ -144,26 +157,44 @@ export function Header({ active }: { active: PageKey }) {
   // Page d'accueil : header institutionnel dédié (inchangé).
   if (active === 'home') return <HomeHeader />;
 
-  // Liens applicatifs SANS « Accueil ».
-  const navLinks = links.filter(link => link.key !== 'home');
+  const admin = isAdminPage(active);
+
+  // Liens applicatifs : ceux de l'espace admin OU ceux de l'espace travaux, jamais mélangés.
+  const navLinks = admin ? adminLinks : links.filter(link => link.key !== 'home');
+
+  // Où mène le logo/marque selon l'espace dans lequel on se trouve.
+  const brandTarget: PageKey = admin ? 'admin-users' : 'home';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+    <header className={`sticky top-0 z-30 border-b bg-white/95 shadow-sm backdrop-blur ${admin ? 'border-orange-200' : 'border-slate-200'}`}>
       <div className="mx-auto flex h-[88px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <button onClick={() => navigate('home')} aria-label="Accueil"><Brand /></button>
+        <button onClick={() => navigate(brandTarget)} aria-label={admin ? 'Accueil admin' : 'Accueil'}>
+          <Brand />
+        </button>
+
+        {admin && (
+          <span className="hidden rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sonatrach sm:inline-flex">
+            Administration
+          </span>
+        )}
+
         <nav className="hidden items-center gap-1 lg:flex">
-          {navLinks.map(link => (
-            <button
-              key={link.key}
-              onClick={() => navigate(link.key)}
-              className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
-                active === link.key ? 'border border-orange-200 bg-orange-50 text-sonatrach' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
+          {navLinks.map(link => {
+            const Icon = 'icon' in link ? link.icon : undefined;
+            return (
+              <button
+                key={link.key}
+                onClick={() => navigate(link.key)}
+                className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
+                  active === link.key ? 'border border-orange-200 bg-orange-50 text-sonatrach' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                {Icon && <Icon size={15} />} {link.label}
+              </button>
+            );
+          })}
         </nav>
+
         <div className="flex items-center gap-3">
           <button className="relative hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 sm:block">
             <Bell size={19} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sonatrach" />
@@ -175,12 +206,12 @@ export function Header({ active }: { active: PageKey }) {
           <div className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-xs font-bold text-sonatrach">
             {userInitials(user.name)}
           </div>
-          {/* Bouton Déconnecter placé à la fin de la barre. */}
+          {/* Retour à l'espace travaux depuis l'admin, sinon déconnexion normale. */}
           <button
-            onClick={() => navigate('home')}
+            onClick={() => navigate(admin ? 'dashboard' : 'home')}
             className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-sonatrach lg:inline-flex"
           >
-            <LogOut size={16} /> Déconnecter
+            {admin ? <>Retour à l'espace travaux</> : <><LogOut size={16} /> Déconnecter</>}
           </button>
           <button className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X size={20} /> : <Menu size={20} />}
@@ -189,23 +220,25 @@ export function Header({ active }: { active: PageKey }) {
       </div>
       {open && (
         <div className="border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
-          {navLinks.map(link => (
-            <button
-              key={link.key}
-              onClick={() => { navigate(link.key); setOpen(false); }}
-              className={`block w-full rounded-lg px-3 py-3 text-left text-sm font-semibold ${
-                active === link.key ? 'bg-orange-50 text-sonatrach' : 'text-slate-700'
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
-          {/* Déconnecter en dernier dans le menu mobile. */}
+          {navLinks.map(link => {
+            const Icon = 'icon' in link ? link.icon : undefined;
+            return (
+              <button
+                key={link.key}
+                onClick={() => { navigate(link.key); setOpen(false); }}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-3 text-left text-sm font-semibold ${
+                  active === link.key ? 'bg-orange-50 text-sonatrach' : 'text-slate-700'
+                }`}
+              >
+                {Icon && <Icon size={16} />} {link.label}
+              </button>
+            );
+          })}
           <button
-            onClick={() => { navigate('home'); setOpen(false); }}
+            onClick={() => { navigate(admin ? 'dashboard' : 'home'); setOpen(false); }}
             className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-slate-100 px-3 py-3 text-left text-sm font-semibold text-slate-700"
           >
-            <LogOut size={16} /> Déconnecter
+            {admin ? "Retour à l'espace travaux" : <><LogOut size={16} /> Déconnecter</>}
           </button>
         </div>
       )}
@@ -244,10 +277,11 @@ export function Footer() {
 }
 
 export function AppShell({ active, children }: { active: PageKey; children: React.ReactNode }) {
+  const admin = isAdminPage(active);
   return (
     <div className="min-h-screen bg-slate-50">
       {/* La barre supérieure noire reste masquée sur l'accueil pour un rendu institutionnel épuré. */}
-      {active !== 'home' && <TopBar />}
+      {active !== 'home' && <TopBar admin={admin} />}
       <Header active={active} />
       {children}
       <Footer />
