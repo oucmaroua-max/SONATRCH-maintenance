@@ -1,4 +1,4 @@
-import { pool } from '@/config/db';
+import { pool } from '@/db/client';
 import { generateSessionToken, hashToken } from '@/utils/hash';
 
 const DURATION_H = Number(process.env.SESSION_DURATION_HOURS ?? 24);
@@ -19,7 +19,7 @@ export async function createSession(userId: string, userAgent?: string, ip?: str
 export async function findValidSession(token: string) {
   const tokenHash = hashToken(token);
   const result = await pool.query(
-    `SELECT s.*, u.id as user_id, u.name, u.role, u.is_admin, u.status
+    `SELECT s.id AS session_id, s.user_id, u.name, u.role, u.is_admin, u.status
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()`,
@@ -30,5 +30,8 @@ export async function findValidSession(token: string) {
 
 export async function revokeSession(token: string) {
   const tokenHash = hashToken(token);
-  await pool.query(`UPDATE sessions SET revoked_at = NOW() WHERE token_hash = $1`, [tokenHash]);
+  await pool.query(
+    `UPDATE sessions SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL`,
+    [tokenHash],
+  );
 }
