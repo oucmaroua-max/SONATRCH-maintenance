@@ -1,9 +1,9 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore,FormEvent } from 'react';
 import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory, Users, Building2 } from 'lucide-react';
 import { Brand } from '@/components/Brand';
 import logo from '@/assets/sonatrach-logo.png';
-import { getSessionUser, subscribeSession, userInitials } from '@/session';
-
+import { getSessionUser, logout, subscribeSession, userInitials } from '@/session';
+import type { LucideIcon } from 'lucide-react';
 export const sonatrachLogo = logo;
 
 //export type PageKey = 'home' | 'login' | 'dashboard' | 'orders' | 'new-order';
@@ -160,8 +160,15 @@ export function Header({ active }: { active: PageKey }) {
   const admin = isAdminPage(active);
 
   // Liens applicatifs : ceux de l'espace admin OU ceux de l'espace travaux, jamais mélangés.
-  const navLinks = admin ? adminLinks : links.filter(link => link.key !== 'home');
+  const navLinks = admin
+    ? adminLinks
+    : [
+        ...links.filter(link => link.key !== 'home'),
+        ...(user.isAdmin ? [{ key: 'admin-users' as PageKey, label: 'Administration' }] : []),
+      ];
 
+  // 2) vraie déconnexion
+  const onLogout = async () => { await logout(); navigate('login'); };
   // Où mène le logo/marque selon l'espace dans lequel on se trouve.
   const brandTarget: PageKey = admin ? 'admin-users' : 'home';
 
@@ -208,7 +215,7 @@ export function Header({ active }: { active: PageKey }) {
           </div>
           {/* Retour à l'espace travaux depuis l'admin, sinon déconnexion normale. */}
           <button
-            onClick={() => navigate(admin ? 'dashboard' : 'home')}
+            onClick={() => (admin ? navigate('dashboard') : onLogout())}
             className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-sonatrach lg:inline-flex"
           >
             {admin ? <>Retour à l'espace travaux</> : <><LogOut size={16} /> Déconnecter</>}
@@ -235,7 +242,7 @@ export function Header({ active }: { active: PageKey }) {
             );
           })}
           <button
-            onClick={() => { navigate(admin ? 'dashboard' : 'home'); setOpen(false); }}
+            onClick={() => { setOpen(false); if (admin) navigate('dashboard'); else void onLogout(); }}
             className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-slate-100 px-3 py-3 text-left text-sm font-semibold text-slate-700"
           >
             {admin ? "Retour à l'espace travaux" : <><LogOut size={16} /> Déconnecter</>}

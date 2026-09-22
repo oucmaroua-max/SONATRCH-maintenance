@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { findUserByIdentifier } from '@/models/user.model';
+import { findUserByIdentifier, findUserById } from '@/models/user.model';
 import { createSession, revokeSession } from '@/models/session.model';
 import { verifyPassword } from '@/utils/hash';
 
@@ -18,6 +18,14 @@ export async function login(req: Request, res: Response) {
   const token = await createSession(user.id, req.headers['user-agent'], req.ip);
   const { passwordHash, ...safeUser } = user;
   res.json({ token, user: safeUser });
+}
+
+export async function me(req: Request, res: Response) {
+  const { userId } = (req as any).auth;
+  const user = await findUserById(userId);
+  if (!user) return res.status(401).json({ error: 'Session invalide' });
+  const { passwordHash, ...safeUser } = user;
+  res.json({ user: safeUser });
 }
 
 export async function logout(req: Request, res: Response) {

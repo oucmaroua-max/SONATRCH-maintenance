@@ -1,53 +1,144 @@
-import { FormEvent, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, KeyRound, Lock, RefreshCw, Save } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Save } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { OrgCascadeSelect } from '@/components/ui/OrgCascadeSelect';
-import { users as seedUsers } from '@/data';
+import { api } from '@/api';
+import { createUser, getUserDetail, resetUserPassword, updateUser } from '@/adminUsers';
 import type { Role, UserStatus } from '@/types';
 
 const ROLES: Role[] = ['Directeur', 'Sous-directeur', 'Chef de département', 'Chef de service', 'Employé'];
-const STATUSES: UserStatus[] = ['pending', 'active', 'inactive', 'suspended'];
 
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let pwd = '';
-  for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-  return pwd;
-}
+type OrgResponse = {
+  sousDirections: { abrv: string; name: string }[];
+  departements: { abrv: string; name: string; sousDirectionAbrv: string | null }[];
+  services: { abrv: string; name: string; departementAbrv: string | null }[];
+};
 
 export function AdminUserFormPage() {
   const pathParts = window.location.pathname.split('/');
   const editId = pathParts[pathParts.length - 1];
-  const isEdit = editId && editId !== 'admin-user-form';
-  const existingUser = isEdit ? seedUsers.find((u) => u.id === editId) : undefined;
+  const isEdit = Boolean(editId) && editId !== 'admin-user-form';
 
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [tempPassword, setTempPassword] = useState(generateTempPassword());
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [passwordReset, setPasswordReset] = useState(false);
-  const [copied, setCopied] = useState(false);
 
-  const [name, setName] = useState(existingUser?.name ?? '');
-  const [username, setUsername] = useState(existingUser?.username ?? '');
-  const [email, setEmail] = useState(existingUser?.email ?? '');
-  const [role, setRole] = useState<Role>(existingUser?.role ?? 'Employé');
-  const [status, setStatus] = useState<UserStatus>(existingUser?.status ?? 'pending');
-  const [isAdmin, setIsAdmin] = useState(existingUser?.is_admin ?? false);
-  const [org, setOrg] = useState({
-    sub_direction: existingUser?.sub_direction ?? '',
-    department: existingUser?.department ?? '',
-    service: existingUser?.service ?? '',
-  });
+  const [org, setOrg] = useState<OrgResponse>({ sousDirections: [], departements: [], services: [] });
 
-  function submit(e: FormEvent) {
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<Role>('Employé');
+  const [status, setStatus] = useState<UserStatus>('pending');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [orgSelection, setOrgSelection] = useState({ sub_direction: '', department: '', service: '' });
+
+  // réinitialisation de mot de passe (mode édition)
+  const [newPassword, setNewPassword] = useState('');
+  const [resetSaving, setResetSaving] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetDone, setResetDone] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const orgTree = await api<OrgResponse>('/api/org');
+        setOrg(orgTree);
+        if (isEdit) {
+          const { user } = await getUserDetail(editId);
+          setName(user.name);
+          setUsername(user.username);
+          setEmail(user.email);
+          setRole(user.role);
+          setStatus(user.status);
+          setIsAdmin(user.is_admin);
+          setOrgSelection({ sub_direction: user.sub_direction, department: user.department, service: user.service });
+        }
+        setLoadError(null);
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : 'Erreur de chargement');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [isEdit, editId]);
+
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    setSaved(true);
+    setFormError(null);
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await updateUser(editId, {
+          name, email, role, isAdmin,
+          sub_direction: orgSelection.sub_direction,
+          department: orgSelection.department,
+          service: orgSelection.service,
+        });
+      } else {
+        await createUser({
+          name, username, email, password, role, isAdmin,
+          sub_direction: orgSelection.sub_direction,
+          department: orgSelection.department,
+          service: orgSelection.service,
+        });
+      }
+      setSaved(true);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Enregistrement impossible');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function copyPassword() {
-    navigator.clipboard?.writeText(tempPassword);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function submitPasswordReset(e: FormEvent) {
+    e.preventDefault();
+    setResetError(null);
+    if (newPassword.length < 8) {
+      setResetError('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    setResetSaving(true);
+    try {
+      await resetUserPassword(editId, newPassword);
+      setResetDone(true);
+      setNewPassword('');
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : 'Réinitialisation impossible');
+    } finally {
+      setResetSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <AppShell active="admin-users">
+        <main className="industrial-grid min-h-[calc(100vh-200px)]">
+          <div className="mx-auto max-w-3xl px-4 py-16 text-center lg:px-8">
+            <p className="text-sm text-slate-500">Chargement…</p>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell active="admin-users">
+        <main className="industrial-grid min-h-[calc(100vh-200px)]">
+          <div className="mx-auto max-w-3xl px-4 py-16 text-center lg:px-8">
+            <p className="text-sm font-semibold text-red-600">{loadError}</p>
+            <button onClick={() => navigate('admin-users')} className="mt-4 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white">
+              Retour à la liste
+            </button>
+          </div>
+        </main>
+      </AppShell>
+    );
   }
 
   if (saved) {
@@ -62,38 +153,10 @@ export function AdminUserFormPage() {
                   {isEdit ? 'Utilisateur mis à jour' : 'Utilisateur créé'}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  {isEdit
-                    ? `Les modifications de ${name} ont été enregistrées.`
-                    : `Le compte de ${name} a été créé avec succès.`}
+                  {isEdit ? `Les modifications de ${name} ont été enregistrées.` : `Le compte de ${name} a été créé avec le mot de passe que vous avez défini.`}
                 </p>
-
-                {!isEdit && (
-                  <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-left">
-                    <p className="flex items-center gap-2 text-sm font-bold text-amber-800">
-                      <KeyRound size={16} /> Mot de passe temporaire
-                    </p>
-                    <p className="mt-1 text-xs text-amber-700">
-                      À communiquer une seule fois à l'utilisateur. Il devra le changer à la première connexion.
-                    </p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <code className="flex-1 rounded-lg border border-amber-300 bg-white px-4 py-2.5 font-mono text-sm font-bold text-amber-900">
-                        {tempPassword}
-                      </code>
-                      <button
-                        onClick={copyPassword}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-xs font-bold text-amber-700 hover:bg-amber-100"
-                      >
-                        <Copy size={14} /> {copied ? 'Copié' : 'Copier'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <div className="mt-6 flex justify-center gap-3">
-                  <button
-                    onClick={() => navigate('admin-users')}
-                    className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white"
-                  >
+                  <button onClick={() => navigate('admin-users')} className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white">
                     Retour à la liste
                   </button>
                 </div>
@@ -109,10 +172,7 @@ export function AdminUserFormPage() {
     <AppShell active="admin-users">
       <main className="industrial-grid min-h-[calc(100vh-200px)]">
         <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 lg:px-8">
-          <button
-            onClick={() => navigate('admin-users')}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-sonatrach"
-          >
+          <button onClick={() => navigate('admin-users')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-sonatrach">
             <ArrowLeft size={16} /> Retour à la liste
           </button>
 
@@ -121,97 +181,88 @@ export function AdminUserFormPage() {
               {isEdit ? 'Modification' : 'Création'}
             </p>
             <h1 className="heading mt-2 text-3xl font-extrabold tracking-tight text-slate-950">
-              {isEdit ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}
+              {isEdit ? "Modifier l'utilisateur" : 'Nouvel utilisateur'}
             </h1>
           </div>
 
           <form onSubmit={submit} className="space-y-6">
-            {/* Identité */}
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="heading text-lg font-bold text-slate-900">Identité</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-bold text-slate-700">Nom complet <span className="text-red-500">*</span></span>
-                  <input
-                    required value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
-                    placeholder="Ex: Karim Benali"
-                  />
+                  <input required value={name} onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100" placeholder="Ex: Karim Benali" />
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-bold text-slate-700">Nom d'utilisateur <span className="text-red-500">*</span></span>
-                  <input
-                    required value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
-                    placeholder="Ex: k.benali"
-                  />
+                  <input required disabled={isEdit} value={username} onChange={(e) => setUsername(e.target.value)}
+                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100 disabled:bg-slate-100" placeholder="Ex: k.benali" />
                 </label>
                 <label className="block sm:col-span-2">
                   <span className="mb-1.5 block text-sm font-bold text-slate-700">Email <span className="text-red-500">*</span></span>
-                  <input
-                    required type="email" value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
-                    placeholder="Ex: k.benali@sonatrach.dz"
-                  />
+                  <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100" placeholder="Ex: k.benali@sonatrach.dz" />
                 </label>
+
+                {/* Mot de passe : uniquement à la création */}
+                {!isEdit && (
+                  <label className="block sm:col-span-2">
+                    <span className="mb-1.5 block text-sm font-bold text-slate-700">Mot de passe <span className="text-red-500">*</span></span>
+                    <div className="relative">
+                      <input
+                        required
+                        minLength={8}
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Au moins 8 caractères"
+                        className="w-full rounded-lg border-slate-300 pr-10 text-sm focus:border-sonatrach focus:ring-orange-100"
+                      />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <span className="mt-1 block text-[11px] text-slate-400">Choisissez le mot de passe de ce compte. Communiquez-le à l'utilisateur en dehors de l'application.</span>
+                  </label>
+                )}
               </div>
             </section>
 
-            {/* Rôle & Organisation */}
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="heading text-lg font-bold text-slate-900">Rôle & Organisation</h2>
               <div className="mt-4 space-y-4">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-bold text-slate-700">Rôle <span className="text-red-500">*</span></span>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as Role)}
-                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
+                  <select value={role} onChange={(e) => setRole(e.target.value as Role)}
+                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100">
+                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
                 <OrgCascadeSelect
-                  subDirection={org.sub_direction}
-                  department={org.department}
-                  service={org.service}
-                  onChange={setOrg}
+                  subDirection={orgSelection.sub_direction}
+                  department={orgSelection.department}
+                  service={orgSelection.service}
+                  subDirections={org.sousDirections.map((sd) => ({ id: sd.abrv, name: sd.name }))}
+                  departments={org.departements.map((d) => ({ id: d.abrv, name: d.name, sub_direction_id: d.sousDirectionAbrv ?? '' }))}
+                  services={org.services.map((s) => ({ id: s.abrv, name: s.name, department_id: s.departementAbrv ?? '' }))}
+                  onChange={setOrgSelection}
                 />
               </div>
             </section>
 
-            {/* Statut & Admin */}
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="heading text-lg font-bold text-slate-900">Statut & Accès</h2>
               <div className="mt-4 space-y-4">
                 {isEdit && (
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-bold text-slate-700">Statut</span>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as UserStatus)}
-                      className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s === 'pending' ? 'En attente' : s === 'active' ? 'Actif' : s === 'inactive' ? 'Inactif' : 'Suspendu'}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <p className="text-xs text-slate-500">
+                    Statut actuel : <span className="font-bold text-slate-700">{status}</span>. Changez-le depuis la liste des utilisateurs (approuver / suspendre).
+                  </p>
                 )}
                 <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-4 transition hover:bg-slate-50">
-                  <input
-                    type="checkbox"
-                    checked={isAdmin}
-                    onChange={(e) => setIsAdmin(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-sonatrach focus:ring-orange-100"
-                  />
+                  <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-sonatrach focus:ring-orange-100" />
                   <div>
                     <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
                       <Lock size={14} /> Accès administrateur
@@ -222,94 +273,46 @@ export function AdminUserFormPage() {
               </div>
             </section>
 
-            {/* Mot de passe */}
-            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="heading text-lg font-bold text-slate-900">Mot de passe</h2>
-              {!isEdit ? (
-                <div className="mt-4">
-                  <p className="text-sm text-slate-600">Un mot de passe temporaire est généré automatiquement :</p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <code className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono text-sm font-bold text-slate-800">
-                      {tempPassword}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => setTempPassword(generateTempPassword())}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                    >
-                      <RefreshCw size={14} /> Régénérer
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">
-                    L'utilisateur devra changer ce mot de passe à sa première connexion.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  {!showResetConfirm && !passwordReset && (
-                    <button
-                      type="button"
-                      onClick={() => setShowResetConfirm(true)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-100"
-                    >
-                      <KeyRound size={16} /> Réinitialiser le mot de passe
-                    </button>
-                  )}
-                  {showResetConfirm && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                      <p className="text-sm font-semibold text-amber-800">
-                        Confirmer la réinitialisation ? Un nouveau mot de passe temporaire sera généré.
-                      </p>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setTempPassword(generateTempPassword()); setShowResetConfirm(false); setPasswordReset(true); }}
-                          className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
-                        >
-                          Confirmer
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowResetConfirm(false)}
-                          className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-600"
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {passwordReset && (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                      <p className="flex items-center gap-2 text-sm font-bold text-emerald-800">
-                        <CheckCircle2 size={16} /> Nouveau mot de passe temporaire :
-                      </p>
-                      <code className="mt-2 block rounded-lg border border-emerald-300 bg-white px-4 py-2 font-mono text-sm font-bold text-emerald-900">
-                        {tempPassword}
-                      </code>
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
+            {formError && <p className="text-sm font-semibold text-red-600">{formError}</p>}
 
-            {/* Actions */}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => navigate('admin-users')}
-                className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
+              <button type="button" onClick={() => navigate('admin-users')} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 Annuler
               </button>
-              <button
-                type="submit"
-                disabled={!name || !username || !email}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-sonatrach px-6 py-3 text-sm font-bold text-white shadow-md shadow-orange-100 transition hover:bg-sonatrach-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Save size={16} /> {isEdit ? 'Enregistrer' : 'Créer'}
+              <button type="submit" disabled={saving || !name || !username || !email || (!isEdit && password.length < 8)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-sonatrach px-6 py-3 text-sm font-bold text-white shadow-md shadow-orange-100 transition hover:bg-sonatrach-600 disabled:cursor-not-allowed disabled:opacity-50">
+                <Save size={16} /> {saving ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
               </button>
             </div>
           </form>
+
+          {/* Changer le mot de passe : uniquement en édition, formulaire séparé */}
+          {isEdit && (
+            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
+                <KeyRound size={18} /> Changer le mot de passe
+              </h2>
+              <form onSubmit={submitPasswordReset} className="mt-4 space-y-3">
+                <label className="block max-w-sm">
+                  <span className="mb-1.5 block text-sm font-bold text-slate-700">Nouveau mot de passe</span>
+                  <input
+                    type="password"
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setResetDone(false); }}
+                    placeholder="Au moins 8 caractères"
+                    className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
+                  />
+                </label>
+                {resetError && <p className="text-xs font-semibold text-red-600">{resetError}</p>}
+                {resetDone && <p className="text-xs font-semibold text-emerald-600">Mot de passe mis à jour.</p>}
+                <button type="submit" disabled={resetSaving || newPassword.length < 8}
+                  className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                  {resetSaving ? 'Enregistrement…' : 'Mettre à jour le mot de passe'}
+                </button>
+              </form>
+            </section>
+          )}
         </div>
       </main>
     </AppShell>

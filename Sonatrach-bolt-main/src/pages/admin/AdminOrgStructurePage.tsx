@@ -1,28 +1,65 @@
-import { useState } from 'react';
-import { AlertTriangle, Building2, ChevronRight, Layers, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Building2, ChevronRight, Layers, Pencil, Plus, Trash2 } from 'lucide-react';
+import { api } from '@/api';
 import { AppShell } from '@/components/Shell';
 import { Modal } from '@/components/ui/Modal';
-import {
-  departments as seedDepartments,
-  services as seedServices,
-  subDirections as seedSubDirections,
-} from '@/data';
 import type { Department, Service, SubDirection } from '@/types';
 
+
 type Tab = 'sub-directions' | 'departments' | 'services';
+type Editing = { type: Tab; id?: string; name: string; abrv: string; parent?: string };
+
+type OrgResponse = {
+  sousDirections: { id: string; name: string; abrv: string }[];
+  departements: { id: string; name: string; abrv: string; sousDirectionAbrv: string | null }[];
+  services: { id: string; name: string; abrv: string; departementAbrv: string | null }[];
+};
+
+const ENDPOINTS: Record<Tab, string> = {
+  'sub-directions': '/api/org/sous-directions',
+  departments: '/api/org/departements',
+  services: '/api/org/services',
+};
 
 export function AdminOrgStructurePage() {
   const [tab, setTab] = useState<Tab>('sub-directions');
-  const [subDirections, setSubDirections] = useState<SubDirection[]>(seedSubDirections);
-  const [departments, setDepartments] = useState<Department[]>(seedDepartments);
-  const [services, setServices] = useState<Service[]>(seedServices);
+  const [subDirections, setSubDirections] = useState<SubDirection[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<{ type: Tab; id?: string; name: string; abrv: string; parent?: string } | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const org = await api<OrgResponse>('/api/org');
+      setSubDirections(org.sousDirections.map((sd) => ({ id: sd.abrv, name: sd.name, abrv: sd.abrv })));
+      setDepartments(org.departements.map((d) => ({ id: d.abrv, name: d.name, abrv: d.abrv, sub_direction_id: d.sousDirectionAbrv ?? '' })));
+      setServices(org.services.map((s) => ({ id: s.abrv, name: s.name, abrv: s.abrv, department_id: s.departementAbrv ?? '' })));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+    setFormError(null);
+  }
 
   function openAdd(type: Tab) {
     setEditing({ type, name: '', abrv: '' });
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -36,36 +73,40 @@ export function AdminOrgStructurePage() {
       const s = item as Service;
       setEditing({ type, id: s.id, name: s.name, abrv: s.abrv, parent: s.department_id });
     }
+    setFormError(null);
     setModalOpen(true);
   }
 
-  function save() {
+  async function save() {
     if (!editing || !editing.name.trim() || !editing.abrv.trim()) return;
-    if (editing.type === 'sub-directions') {
-      if (editing.id) {
-        setSubDirections((prev) => prev.map((sd) => sd.id === editing.id ? { ...sd, name: editing.name, abrv: editing.abrv } : sd));
-      } else {
-        setSubDirections((prev) => [...prev, { id: `sd-${Date.now()}`, name: editing.name, abrv: editing.abrv }]);
-      }
-    } else if (editing.type === 'departments') {
-      if (editing.id) {
-        setDepartments((prev) => prev.map((d) => d.id === editing.id ? { ...d, name: editing.name, abrv: editing.abrv, sub_direction_id: editing.parent ?? d.sub_direction_id } : d));
-      } else {
-        setDepartments((prev) => [...prev, { id: `dep-${Date.now()}`, name: editing.name, abrv: editing.abrv, sub_direction_id: editing.parent ?? '' }]);
-      }
-    } else {
-      if (editing.id) {
-        setServices((prev) => prev.map((s) => s.id === editing.id ? { ...s, name: editing.name, abrv: editing.abrv, department_id: editing.parent ?? s.department_id } : s));
-      } else {
-        setServices((prev) => [...prev, { id: `svc-${Date.now()}`, name: editing.name, abrv: editing.abrv, department_id: editing.parent ?? '' }]);
-      }
+    if (editing.type !== 'sub-directions' && !editing.parent) {
+      setFormError('Sélectionnez le parent.');
+      return;
     }
-    setModalOpen(false);
-    setEditing(null);
+    const body = {
+      name: editing.name.trim(),
+      abrv: editing.abrv.trim(),
+      ...(editing.type === 'departments' ? { sousDirectionAbrv: editing.parent } : {}),
+      ...(editing.type === 'services' ? { departementAbrv: editing.parent } : {}),
+    };
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editing.id) {
+        await api(`${ENDPOINTS[editing.type]}/${encodeURIComponent(editing.id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+      } else {
+        await api(ENDPOINTS[editing.type], { method: 'POST', body: JSON.stringify(body) });
+      }
+      await load();
+      closeModal();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Enregistrement impossible');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function tryDelete(type: Tab, id: string) {
-    // Check for children
+  async function tryDelete(type: Tab, id: string) {
     if (type === 'sub-directions' && departments.some((d) => d.sub_direction_id === id)) {
       setDeleteWarning('Impossible de supprimer : des départements sont rattachés à cette sous-direction.');
       return;
@@ -74,12 +115,16 @@ export function AdminOrgStructurePage() {
       setDeleteWarning('Impossible de supprimer : des services sont rattachés à ce département.');
       return;
     }
-    if (type === 'sub-directions') setSubDirections((prev) => prev.filter((sd) => sd.id !== id));
-    if (type === 'departments') setDepartments((prev) => prev.filter((d) => d.id !== id));
-    if (type === 'services') setServices((prev) => prev.filter((s) => s.id !== id));
+    if (!window.confirm('Supprimer définitivement cet élément ?')) return;
+    try {
+      await api(`${ENDPOINTS[type]}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      await load();
+    } catch (e) {
+      setDeleteWarning(e instanceof Error ? e.message : 'Suppression impossible');
+    }
   }
 
-  const tabs: { key: Tab; label: string; icon: typeof Building2; count: number }[] = [
+    const tabs: { key: Tab; label: string; icon: typeof Building2; count: number }[] = [
     { key: 'sub-directions', label: 'Sous-directions', icon: Building2, count: subDirections.length },
     { key: 'departments', label: 'Départements', icon: Layers, count: departments.length },
     { key: 'services', label: 'Services', icon: ChevronRight, count: services.length },
@@ -101,7 +146,11 @@ export function AdminOrgStructurePage() {
               Gérez la hiérarchie : sous-directions → départements → services.
             </p>
           </div>
-
+             {/* États de chargement / erreur */}
+          {loading && <p className="text-sm text-slate-500">Chargement…</p>}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>
+          )}
           {/* Tabs */}
           <div className="flex flex-wrap gap-2">
             {tabs.map((t) => {
@@ -215,8 +264,8 @@ export function AdminOrgStructurePage() {
           onClose={() => { setModalOpen(false); setEditing(null); }}
           footer={
             <>
-              <button onClick={() => { setModalOpen(false); setEditing(null); }} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</button>
-              <button onClick={save} className="rounded-lg bg-sonatrach px-5 py-2.5 text-sm font-bold text-white hover:bg-sonatrach-600">Enregistrer</button>
+               <button onClick={closeModal} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</button>
+              <button onClick={save} disabled={saving} className="rounded-lg bg-sonatrach px-5 py-2.5 text-sm font-bold text-white hover:bg-sonatrach-600 disabled:opacity-60">Enregistrer</button>
             </>
           }
         >
@@ -236,7 +285,8 @@ export function AdminOrgStructurePage() {
                 value={editing.abrv}
                 onChange={(e) => setEditing({ ...editing, abrv: e.target.value.toUpperCase() })}
                 maxLength={6}
-                className="w-full rounded-lg border-slate-300 font-mono text-sm focus:border-sonatrach focus:ring-orange-100"
+                disabled={Boolean(editing.id)}
+                className="w-full rounded-lg border-slate-300 font-mono text-sm focus:border-sonatrach focus:ring-orange-100 disabled:bg-slate-100"
                 placeholder="Ex: SDM"
               />
             </label>
@@ -255,7 +305,7 @@ export function AdminOrgStructurePage() {
                 </select>
               </label>
             )}
-            {editing.type === 'services' && (
+                      {editing.type === 'services' && (
               <label className="block">
                 <span className="mb-1.5 block text-sm font-bold text-slate-700">Département parent</span>
                 <select
@@ -270,6 +320,8 @@ export function AdminOrgStructurePage() {
                 </select>
               </label>
             )}
+
+            {formError && <p className="text-xs font-semibold text-red-600">{formError}</p>}
           </div>
         </Modal>
       )}

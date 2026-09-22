@@ -1,32 +1,71 @@
-import { useMemo } from 'react';
-import { ArrowLeft, CheckCircle2, ClipboardList, History, Lock, Mail, Pencil, ShieldCheck, User as UserIcon, Wrench } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, History, Lock, Mail, Pencil, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { RoleBadge, UserStatusBadge } from '@/components/ui/AdminBadges';
-import { auditLog, userPositionHistory, users, workOrders } from '@/data';
-import { getDepartmentName, getServiceName, getSubDirectionName } from '@/data';
+import { getUserDetail } from '@/adminUsers';
+import { api } from '@/api';
+import type { User } from '@/types';
+
+type OrgResponse = {
+  sousDirections: { abrv: string; name: string }[];
+  departements: { abrv: string; name: string }[];
+  services: { abrv: string; name: string }[];
+};
+
+type HistoryEntry = { id: string; changedAt: string; reason: string | null; oldRole: string | null; newRole: string | null };
+type AuditEntry = { id: string; action: string; details: { note?: string } | null; createdAt: string };
 
 export function AdminUserDetailPage() {
   const pathParts = window.location.pathname.split('/');
   const userId = pathParts[pathParts.length - 1];
-  const user = users.find((u) => u.id === userId);
 
-  const history = useMemo(() => userPositionHistory.filter((h) => h.user_id === userId), [userId]);
-  const audit = useMemo(() => auditLog.filter((a) => a.target_user_id === userId), [userId]);
-  const linkedWork = useMemo(
-    () => workOrders.filter((w) => w.assignee === user?.name || w.service === getServiceName(user?.service ?? '')),
-    [userId, user],
-  );
+  const [user, setUser] = useState<User | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [org, setOrg] = useState<OrgResponse>({ sousDirections: [], departements: [], services: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!user) {
+  useEffect(() => {
+    (async () => {
+      try {
+        const [detail, orgTree] = await Promise.all([getUserDetail(userId), api<OrgResponse>('/api/org')]);
+        setUser(detail.user);
+        setHistory(detail.history as HistoryEntry[]);
+        setAudit(detail.audit as AuditEntry[]);
+        setOrg(orgTree);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Utilisateur introuvable');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  const sdName = (abrv: string) => org.sousDirections.find((s) => s.abrv === abrv)?.name ?? '—';
+  const depName = (abrv: string) => org.departements.find((d) => d.abrv === abrv)?.name ?? '—';
+  const svcName = (abrv: string) => org.services.find((s) => s.abrv === abrv)?.name ?? '—';
+
+  if (loading) {
     return (
       <AppShell active="admin-users">
         <main className="industrial-grid min-h-[calc(100vh-200px)]">
           <div className="mx-auto max-w-3xl px-4 py-16 text-center lg:px-8">
-            <p className="text-lg font-bold text-slate-700">Utilisateur introuvable.</p>
-            <button
-              onClick={() => navigate('admin-users')}
-              className="mt-4 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white"
-            >
+            <p className="text-sm text-slate-500">Chargement…</p>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <AppShell active="admin-users">
+        <main className="industrial-grid min-h-[calc(100vh-200px)]">
+          <div className="mx-auto max-w-3xl px-4 py-16 text-center lg:px-8">
+            <p className="text-lg font-bold text-slate-700">{error ?? 'Utilisateur introuvable.'}</p>
+            <button onClick={() => navigate('admin-users')} className="mt-4 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white">
               Retour à la liste
             </button>
           </div>
@@ -39,14 +78,10 @@ export function AdminUserDetailPage() {
     <AppShell active="admin-users">
       <main className="industrial-grid min-h-[calc(100vh-200px)]">
         <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 lg:px-8">
-          <button
-            onClick={() => navigate('admin-users')}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-sonatrach"
-          >
+          <button onClick={() => navigate('admin-users')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-sonatrach">
             <ArrowLeft size={16} /> Retour à la liste
           </button>
 
-          {/* Header card */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
@@ -68,16 +103,13 @@ export function AdminUserDetailPage() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => navigate(`admin-user-form/${user.id}`)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
-              >
+              <button onClick={() => navigate(`admin-user-form/${user.id}`)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
                 <Pencil size={16} /> Éditer
               </button>
             </div>
           </div>
 
-          {/* Infos */}
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
               <UserIcon size={18} /> Informations
@@ -86,16 +118,15 @@ export function AdminUserDetailPage() {
               <InfoItem label="Identifiant" value={user.username} mono />
               <InfoItem label="Email" value={user.email} icon={<Mail size={13} />} />
               <InfoItem label="Date de création" value={user.created_at} />
-              <InfoItem label="Sous-direction" value={getSubDirectionName(user.sub_direction)} />
-              <InfoItem label="Département" value={getDepartmentName(user.department)} />
-              <InfoItem label="Service" value={getServiceName(user.service)} />
+              <InfoItem label="Sous-direction" value={sdName(user.sub_direction)} />
+              <InfoItem label="Département" value={depName(user.department)} />
+              <InfoItem label="Service" value={svcName(user.service)} />
               {user.approved_by && <InfoItem label="Approuvé par" value={user.approved_by} />}
               {user.approved_at && <InfoItem label="Approuvé le" value={user.approved_at} />}
             </div>
           </section>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Historique de poste */}
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-5 py-4">
                 <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
@@ -110,21 +141,17 @@ export function AdminUserDetailPage() {
                 {history.map((h) => (
                   <div key={h.id} className="px-5 py-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-sonatrach">{h.field}</span>
-                      <span className="text-[11px] text-slate-400">{h.changed_at}</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-sonatrach">
+                        {h.oldRole !== h.newRole ? 'Rôle' : 'Organisation'}
+                      </span>
+                      <span className="text-[11px] text-slate-400">{h.changedAt?.slice(0, 10)}</span>
                     </div>
-                    <p className="mt-1.5 text-sm text-slate-700">
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{h.old_value}</span>
-                      <span className="mx-2 text-slate-400">→</span>
-                      <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">{h.new_value}</span>
-                    </p>
-                    <p className="mt-1.5 text-[11px] text-slate-500">Par {h.changed_by}</p>
+                    {h.reason && <p className="mt-1.5 text-xs text-slate-500">{h.reason}</p>}
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Journal d'audit */}
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-100 px-5 py-4">
                 <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
@@ -142,48 +169,15 @@ export function AdminUserDetailPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-slate-800">{a.action}</p>
-                        <span className="text-[11px] text-slate-400">{a.performed_at}</span>
+                        <span className="text-[11px] text-slate-400">{a.createdAt?.slice(0, 10)}</span>
                       </div>
-                      {a.details && <p className="mt-1 text-xs text-slate-500">{a.details}</p>}
-                      <p className="mt-1 text-[11px] text-slate-400">Par {a.performed_by}</p>
+                      {a.details?.note && <p className="mt-1 text-xs text-slate-500">{a.details.note}</p>}
                     </div>
                   </div>
                 ))}
               </div>
             </section>
           </div>
-
-          {/* Travaux liés */}
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
-                <Wrench size={18} /> Travaux liés
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">Ordres de travail où l'utilisateur est intervenant ou rattaché.</p>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {linkedWork.length === 0 && (
-                <p className="px-5 py-8 text-center text-sm text-slate-500">Aucun travail lié.</p>
-              )}
-              {linkedWork.map((w) => (
-                <div
-                  key={w.id}
-                  onClick={() => navigate(`orders/${w.id}`)}
-                  className="flex cursor-pointer items-center justify-between px-5 py-3.5 transition hover:bg-orange-50/30"
-                >
-                  <div>
-                    <span className="font-mono text-[11px] font-bold text-sonatrach">{w.id}</span>
-                    <p className="mt-0.5 text-sm font-bold text-slate-800">{w.title}</p>
-                    <p className="text-xs text-slate-500">{w.assignee} · {w.service}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-600">{w.status}</span>
-                    <ClipboardList size={16} className="text-slate-400" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
       </main>
     </AppShell>

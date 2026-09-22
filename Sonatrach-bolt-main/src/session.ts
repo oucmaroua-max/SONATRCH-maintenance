@@ -1,56 +1,66 @@
+import { api, getToken, setToken } from '@/api';
 import type { UserRole } from '@/types';
 
 export type SessionUser = {
+  id: string;
   name: string;
   identifier: string;
   role: UserRole;
+  isAdmin: boolean;
 };
 
 const STORAGE_KEY = 'sonatrach-session';
 
 export const USER_ROLES: UserRole[] = [
-  'Directeur',
-  'Sous-directeur',
-  'Chef de département',
-  'Chef de service',
-  'Chef de quart',
-  'Technicien',
+  'Directeur', 'Sous-directeur', 'Chef de département', 'Chef de service', 'Chef de quart', 'Technicien',
 ];
 
 export const MANAGEMENT_ROLES: UserRole[] = [
-  'Directeur',
-  'Sous-directeur',
-  'Chef de département',
-  'Chef de service',
+  'Directeur', 'Sous-directeur', 'Chef de département', 'Chef de service',
 ];
 
-const DEFAULT_USER: SessionUser = {
-  name: 'Ing. R. Bensalem',
-  identifier: 'SH-54980',
-  role: 'Chef de service',
+// enum backend -> libellé front
+const ROLE_FROM_API: Record<string, UserRole> = {
+  directeur: 'Directeur',
+  sous_directeur: 'Sous-directeur',
+  chef_departement: 'Chef de département',
+  chef_service: 'Chef de service',
+  employe: 'Technicien',
 };
 
+const GUEST: SessionUser = { id: '', name: 'Invité', identifier: '', role: 'Technicien', isAdmin: false };
+
+type ApiUser = { id: string; name: string; username: string; role: string | null; isAdmin: boolean };
+
+function toSessionUser(u: ApiUser): SessionUser {
+  return {
+    id: u.id,
+    name: u.name,
+    identifier: u.username,
+    role: (u.role && ROLE_FROM_API[u.role]) || 'Technicien',
+    isAdmin: u.isAdmin,
+  };
+}
+
 function load(): SessionUser {
+  if (!getToken()) return GUEST;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_USER };
-    const parsed = JSON.parse(raw) as SessionUser;
-    if (!parsed?.role || !USER_ROLES.includes(parsed.role)) return { ...DEFAULT_USER };
-    return {
-      name: parsed.name || DEFAULT_USER.name,
-      identifier: parsed.identifier || DEFAULT_USER.identifier,
-      role: parsed.role,
-    };
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as SessionUser | null;
+    return parsed?.id ? parsed : GUEST;
   } catch {
-    return { ...DEFAULT_USER };
+    return GUEST;
   }
 }
 
 let user = load();
 const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
 
-function emit() {
-  listeners.forEach((listener) => listener());
+function setUser(next: SessionUser) {
+  user = next;
+  if (next.id) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  else localStorage.removeItem(STORAGE_KEY);
+  emit();
 }
 
 export function subscribeSession(listener: () => void) {
@@ -58,14 +68,37 @@ export function subscribeSession(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function getSessionUser() {
-  return user;
+export const getSessionUser = () => user;
+export const isLoggedIn = () => Boolean(getToken()) && user.id !== '';
+
+export async function login(identifier: string, password: string) {
+  const data = await api<{ token: string; user: ApiUser }>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ identifier, password }),
+  });
+  setToken(data.token);
+  setUser(toSessionUser(data.user));
 }
 
-export function loginUser(next: SessionUser) {
-  user = next;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-  emit();
+export async function logout() {
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+  } catch {
+    /* on déconnecte quand même côté client */
+  }
+  setToken(null);
+  setUser(GUEST);
+}
+
+// Au démarrage : vérifie que le token est encore valide et rafraîchit l'utilisateur
+export async function refreshSession() {
+  if (!getToken()) return;
+  try {
+    const { user: u } = await api<{ user: ApiUser }>('/api/auth/me');
+    setUser(toSessionUser(u));
+  } catch {
+    /* le 401 est déjà géré dans api() */
+  }
 }
 
 export function canReviewCompletedWork(role: UserRole = user.role) {

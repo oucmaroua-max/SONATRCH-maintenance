@@ -1,13 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronRight, Filter, Lock, MoreVertical, Pencil, RotateCcw, Search, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { RoleBadge, UserStatusBadge } from '@/components/ui/AdminBadges';
-import { users as seedUsers } from '@/data';
-import { getDepartmentName, getServiceName, getSubDirectionName } from '@/data';
+import { listUsers, setUserStatus } from '@/adminUsers';
+import { api } from '@/api';
 import type { Role, User, UserStatus } from '@/types';
 
 const ROLES: Role[] = ['Directeur', 'Sous-directeur', 'Chef de département', 'Chef de service', 'Employé'];
 const STATUSES: UserStatus[] = ['pending', 'active', 'inactive', 'suspended'];
+
+type OrgResponse = {
+  sousDirections: { abrv: string; name: string }[];
+  departements: { abrv: string; name: string; sousDirectionAbrv: string | null }[];
+  services: { abrv: string; name: string; departementAbrv: string | null }[];
+};
 
 export function AdminUsersPage() {
   const [search, setSearch] = useState('');
@@ -15,7 +21,34 @@ export function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all');
   const [sdFilter, setSdFilter] = useState('all');
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [userList, setUserList] = useState<User[]>(seedUsers);
+
+  const [userList, setUserList] = useState<User[]>([]);
+  const [subDirections, setSubDirections] = useState<{ abrv: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ abrv: string; name: string }[]>([]);
+  const [services, setServices] = useState<{ abrv: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [users, org] = await Promise.all([listUsers(), api<OrgResponse>('/api/org')]);
+      setUserList(users);
+      setSubDirections(org.sousDirections);
+      setDepartments(org.departements);
+      setServices(org.services);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const sdName = (abrv: string) => subDirections.find((s) => s.abrv === abrv)?.name ?? '—';
+  const depName = (abrv: string) => departments.find((d) => d.abrv === abrv)?.name ?? '—';
+  const svcName = (abrv: string) => services.find((s) => s.abrv === abrv)?.name ?? '—';
 
   const filtered = useMemo(() => {
     return userList.filter((u) => {
@@ -38,23 +71,23 @@ export function AdminUsersPage() {
     setSdFilter('all');
   }
 
-  function approveUser(id: string) {
-    setUserList((prev) =>
-      prev.map((u) =>
-        u.id === id ? { ...u, status: 'active', approved_by: 'Karim Benali', approved_at: new Date().toISOString().slice(0, 10) } : u,
-      ),
-    );
+  async function approveUser(id: string) {
+    try {
+      const updated = await setUserStatus(id, 'active');
+      setUserList((prev) => prev.map((u) => (u.id === id ? updated : u)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Action impossible');
+    }
     setMenuOpen(null);
   }
 
-  function toggleSuspend(id: string) {
-    setUserList((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === 'suspended' ? 'active' : 'suspended' }
-          : u,
-      ),
-    );
+  async function toggleSuspend(id: string, current: UserStatus) {
+    try {
+      const updated = await setUserStatus(id, current === 'suspended' ? 'active' : 'suspended');
+      setUserList((prev) => prev.map((u) => (u.id === id ? updated : u)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Action impossible');
+    }
     setMenuOpen(null);
   }
 
@@ -64,7 +97,6 @@ export function AdminUsersPage() {
     <AppShell active="admin-users">
       <main className="industrial-grid min-h-[calc(100vh-200px)]">
         <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-8">
-          {/* Header */}
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <p className="text-xs font-bold uppercase tracking-[.2em] text-sonatrach">
@@ -85,7 +117,11 @@ export function AdminUsersPage() {
             </button>
           </div>
 
-          {/* Audit banner */}
+          {loading && <p className="text-sm text-slate-500">Chargement…</p>}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>
+          )}
+
           <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             <ShieldCheck size={20} className="shrink-0 text-blue-600" />
             <span>
@@ -94,7 +130,6 @@ export function AdminUsersPage() {
             </span>
           </div>
 
-          {/* Filters */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
               <label className="block">
@@ -146,9 +181,9 @@ export function AdminUsersPage() {
                   className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100"
                 >
                   <option value="all">Toutes</option>
-                  <option value="sd-1">Sous-direction Maintenance</option>
-                  <option value="sd-2">Sous-direction Exploitation</option>
-                  <option value="sd-3">Sous-direction HSE</option>
+                  {subDirections.map((sd) => (
+                    <option key={sd.abrv} value={sd.abrv}>{sd.name}</option>
+                  ))}
                 </select>
               </label>
               <div className="flex items-end">
@@ -162,7 +197,6 @@ export function AdminUsersPage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -204,8 +238,8 @@ export function AdminUsersPage() {
                       <td className="px-5 py-3.5 text-slate-600">{u.email}</td>
                       <td className="px-5 py-3.5"><RoleBadge role={u.role} /></td>
                       <td className="px-5 py-3.5">
-                        <p className="text-xs font-semibold text-slate-700">{getSubDirectionName(u.sub_direction)}</p>
-                        <p className="text-[11px] text-slate-500">{getDepartmentName(u.department)} · {getServiceName(u.service)}</p>
+                        <p className="text-xs font-semibold text-slate-700">{sdName(u.sub_direction)}</p>
+                        <p className="text-[11px] text-slate-500">{depName(u.department)} · {svcName(u.service)}</p>
                       </td>
                       <td className="px-5 py-3.5"><UserStatusBadge status={u.status} /></td>
                       <td className="px-5 py-3.5 text-xs text-slate-500">{u.created_at}</td>
@@ -248,7 +282,7 @@ export function AdminUsersPage() {
                                 <Pencil size={14} /> Éditer
                               </button>
                               <button
-                                onClick={() => toggleSuspend(u.id)}
+                                onClick={() => toggleSuspend(u.id, u.status)}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
                               >
                                 {u.status === 'suspended' ? 'Réactiver' : 'Suspendre'}
@@ -259,6 +293,9 @@ export function AdminUsersPage() {
                       </td>
                     </tr>
                   ))}
+                  {!loading && filtered.length === 0 && (
+                    <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">Aucun utilisateur.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
