@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, History, Lock, Mail, Pencil, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { RoleBadge, UserStatusBadge } from '@/components/ui/AdminBadges';
+import { roleFromApi } from '@/adminRoles';
 import { getUserDetail } from '@/adminUsers';
 import { api } from '@/api';
 import type { User } from '@/types';
@@ -12,7 +13,20 @@ type OrgResponse = {
   services: { abrv: string; name: string }[];
 };
 
-type HistoryEntry = { id: string; changedAt: string; reason: string | null; oldRole: string | null; newRole: string | null };
+type HistoryEntry = {
+  id: string;
+  changedAt: string;
+  reason: string | null;
+  oldRole: string | null;
+  newRole: string | null;
+  oldSousDirectionAbrv: string | null;
+  oldDepartementAbrv: string | null;
+  oldServiceAbrv: string | null;
+  newSousDirectionAbrv: string | null;
+  newDepartementAbrv: string | null;
+  newServiceAbrv: string | null;
+};
+
 type AuditEntry = { id: string; action: string; details: { note?: string } | null; createdAt: string };
 
 export function AdminUserDetailPage() {
@@ -43,9 +57,18 @@ export function AdminUserDetailPage() {
     })();
   }, [userId]);
 
-  const sdName = (abrv: string) => org.sousDirections.find((s) => s.abrv === abrv)?.name ?? '—';
-  const depName = (abrv: string) => org.departements.find((d) => d.abrv === abrv)?.name ?? '—';
-  const svcName = (abrv: string) => org.services.find((s) => s.abrv === abrv)?.name ?? '—';
+  const sdName = (abrv: string | null) => org.sousDirections.find((s) => s.abrv === abrv)?.name ?? null;
+  const depName = (abrv: string | null) => org.departements.find((d) => d.abrv === abrv)?.name ?? null;
+  const svcName = (abrv: string | null) => org.services.find((s) => s.abrv === abrv)?.name ?? null;
+
+  function orgLabel(sd: string | null, dep: string | null, svc: string | null) {
+    const parts = [sdName(sd), depName(dep), svcName(svc)].filter(Boolean);
+    return parts.length ? parts.join(' / ') : '—';
+  }
+
+  function roleLabel(role: string | null) {
+    return role ? roleFromApi(role) : '—';
+  }
 
   if (loading) {
     return (
@@ -118,9 +141,9 @@ export function AdminUserDetailPage() {
               <InfoItem label="Identifiant" value={user.username} mono />
               <InfoItem label="Email" value={user.email} icon={<Mail size={13} />} />
               <InfoItem label="Date de création" value={user.created_at} />
-              <InfoItem label="Sous-direction" value={sdName(user.sub_direction)} />
-              <InfoItem label="Département" value={depName(user.department)} />
-              <InfoItem label="Service" value={svcName(user.service)} />
+              <InfoItem label="Sous-direction" value={sdName(user.sub_direction) ?? '—'} />
+              <InfoItem label="Département" value={depName(user.department) ?? '—'} />
+              <InfoItem label="Service" value={svcName(user.service) ?? '—'} />
               {user.approved_by && <InfoItem label="Approuvé par" value={user.approved_by} />}
               {user.approved_at && <InfoItem label="Approuvé le" value={user.approved_at} />}
             </div>
@@ -138,17 +161,31 @@ export function AdminUserDetailPage() {
                 {history.length === 0 && (
                   <p className="px-5 py-8 text-center text-sm text-slate-500">Aucun changement enregistré.</p>
                 )}
-                {history.map((h) => (
-                  <div key={h.id} className="px-5 py-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-sonatrach">
-                        {h.oldRole !== h.newRole ? 'Rôle' : 'Organisation'}
-                      </span>
-                      <span className="text-[11px] text-slate-400">{h.changedAt?.slice(0, 10)}</span>
+                {history.map((h) => {
+                  const isRole = h.oldRole !== null || h.newRole !== null;
+                  const oldLabel = isRole
+                    ? roleLabel(h.oldRole)
+                    : orgLabel(h.oldSousDirectionAbrv, h.oldDepartementAbrv, h.oldServiceAbrv);
+                  const newLabel = isRole
+                    ? roleLabel(h.newRole)
+                    : orgLabel(h.newSousDirectionAbrv, h.newDepartementAbrv, h.newServiceAbrv);
+                  return (
+                    <div key={h.id} className="px-5 py-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-sonatrach">
+                          {isRole ? 'Rôle' : 'Organisation'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">{h.changedAt?.slice(0, 10)}</span>
+                      </div>
+                      <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{oldLabel}</span>
+                        <span className="text-slate-400">→</span>
+                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">{newLabel}</span>
+                      </p>
+                      {h.reason && <p className="mt-1.5 text-[11px] text-slate-500">{h.reason}</p>}
                     </div>
-                    {h.reason && <p className="mt-1.5 text-xs text-slate-500">{h.reason}</p>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
