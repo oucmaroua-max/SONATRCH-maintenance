@@ -6,9 +6,12 @@ import { relations } from 'drizzle-orm';
 /* ---------- ENUMS ---------- */
 export const roleEnum = pgEnum('role', ['directeur', 'sous_directeur', 'chef_departement', 'chef_service', 'employe']);
 export const userStatusEnum = pgEnum('user_status', ['pending', 'active', 'inactive', 'suspended']);
-export const workStatusEnum = pgEnum('work_status', ['en_cours', 'termine', 'annule', 'en_attente']);
+export const workStatusEnum = pgEnum('work_status', ['en_attente', 'en_cours', 'termine', 'en_retard', 'annule']);
+export const priorityEnum = pgEnum('priority', ['critique', 'haute', 'normale']);
 export const interimStatusEnum = pgEnum('interim_status', ['active', 'termine', 'annule']);
 export const adminActionEnum = pgEnum('admin_action', ['create', 'update', 'approve', 'suspend', 'reactivate', 'reset_password']);
+export const feedbackDecisionEnum = pgEnum('feedback_decision', ['valide', 'valide_reserves', 'non_valide']);
+
 
 /* ---------- sous_directions ---------- */
 export const sousDirections = pgTable('sous_directions', {
@@ -85,19 +88,22 @@ export const interimPeriods = pgTable('interim_periods', {
 /* ---------- works ---------- */
 export const works = pgTable('works', {
   id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),          // ex: OT-2026-1004, affiché au front
+  title: text('title').notNull(),
+  unit: text('unit'),
+  equipment: text('equipment'),
+  permit: text('permit'),
   initiatorId: uuid('initiator_id').notNull().references(() => users.id),
-  assignedToId: uuid('assigned_to_id').references(() => users.id),
-  responsibleId: uuid('responsible_id').notNull().references(() => users.id),
+  assignedToId: uuid('assigned_to_id').references(() => users.id),   // responsable désigné
   serviceId: uuid('service_id').notNull().references(() => services.id),
   descriptionPrevue: text('description_prevue').notNull(),
-  descriptionRealisee: text('description_realisee'),
-  startDate: text('start_date').notNull(),
-  endDate: text('end_date'),
-  status: workStatusEnum('status').notNull().default('en_cours'),
-  workerCount: integer('worker_count').notNull(),
   observation: text('observation'),
-  finishedAt: timestamp('finished_at'),
-  finishedBy: uuid('finished_by').references(() => users.id),
+  priority: priorityEnum('priority').notNull().default('normale'),
+  status: workStatusEnum('status').notNull().default('en_attente'),
+  workerCount: integer('worker_count').notNull().default(1),
+  progress: integer('progress').notNull().default(0),
+  startDate: text('start_date').notNull(),
+  dueDate: text('due_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -107,7 +113,8 @@ export const workFeedback = pgTable('work_feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
   workId: uuid('work_id').notNull().references(() => works.id),
   authorId: uuid('author_id').notNull().references(() => users.id),
-  content: text('content').notNull(),
+  decision: feedbackDecisionEnum('decision').notNull(),
+  comment: text('comment').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -163,7 +170,6 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
 export const worksRelations = relations(works, ({ one, many }) => ({
   initiator: one(users, { fields: [works.initiatorId], references: [users.id], relationName: 'initiator' }),
   assignedTo: one(users, { fields: [works.assignedToId], references: [users.id] }),
-  responsible: one(users, { fields: [works.responsibleId], references: [users.id] }),
   service: one(services, { fields: [works.serviceId], references: [services.id] }),
   feedbacks: many(workFeedback),
 }));

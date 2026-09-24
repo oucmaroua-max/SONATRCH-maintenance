@@ -6,9 +6,23 @@ import * as org from '@/controllers/org.controller';
 import { requireAuth, requireAdmin } from '@/middleware/auth';
 import * as userCtrl from '@/controllers/user.controller';
 
+import * as interimCtrl from '@/controllers/interim.controller';
+import * as workCtrl from '@/controllers/work.controller';
+
 const app = express();
 app.use(cors({ origin: 'http://127.0.0.1:5173' }));
 app.use(express.json());
+
+
+
+// Travaux
+app.get('/api/works', requireAuth, workCtrl.listWorks);
+app.get('/api/works/assignable-users', requireAuth, workCtrl.listAssignableUsers);
+app.post('/api/works', requireAuth, workCtrl.createWork);
+app.get('/api/works/:id', requireAuth, workCtrl.getWork);
+app.patch('/api/works/:id', requireAuth, workCtrl.updateWork);
+app.post('/api/works/:id/feedback', requireAuth, workCtrl.addFeedback);
+
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
@@ -19,6 +33,10 @@ app.get('/api/auth/me', requireAuth, me);
 app.get('/api/org', requireAuth, org.getOrgTree);
 
 const admin = [requireAuth, requireAdmin];
+app.get('/api/interims/mine', requireAuth, interimCtrl.mine);
+app.get('/api/interims', ...admin, interimCtrl.list);
+app.post('/api/interims', ...admin, interimCtrl.create);
+app.patch('/api/interims/:id/end', ...admin, interimCtrl.end);
 app.post('/api/org/sous-directions', ...admin, org.addSousDirection);
 app.post('/api/org/departements', ...admin, org.addDepartement);
 app.post('/api/org/services', ...admin, org.addService);

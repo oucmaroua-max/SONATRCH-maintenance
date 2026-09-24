@@ -20,12 +20,29 @@ export async function login(req: Request, res: Response) {
   res.json({ token, user: safeUser });
 }
 
+import { listMyInterims } from '@/models/interim.model';
+
 export async function me(req: Request, res: Response) {
   const { userId } = (req as any).auth;
   const user = await findUserById(userId);
   if (!user) return res.status(401).json({ error: 'Session invalide' });
   const { passwordHash, ...safeUser } = user;
-  res.json({ user: safeUser });
+
+  const myInterims = (await listMyInterims(userId)).filter((i) => i.status === 'active' && i.delegateUserId === userId);
+  const activeInterimsAsDelegate = await Promise.all(myInterims.map(async (i) => {
+    const delegating = await findUserById(i.delegatingUserId);
+    return {
+      id: i.id, startDate: i.startDate, endDate: i.endDate, reason: i.reason,
+      delegatingUser: delegating ? {
+        id: delegating.id, name: delegating.name, role: delegating.role,
+        sousDirectionAbrv: delegating.sousDirectionAbrv,
+        departementAbrv: delegating.departementAbrv,
+        serviceAbrv: delegating.serviceAbrv,
+      } : null,
+    };
+  }));
+
+  res.json({ user: safeUser, activeInterimsAsDelegate });
 }
 
 export async function logout(req: Request, res: Response) {

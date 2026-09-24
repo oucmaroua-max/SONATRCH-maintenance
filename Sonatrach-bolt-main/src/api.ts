@@ -1,5 +1,9 @@
 const TOKEN_KEY = 'sonatrach-token';
 const USER_KEY = 'sonatrach-session';
+const ACTING_KEY = 'sonatrach-acting-interim';
+export const getActingInterimId = () => localStorage.getItem(ACTING_KEY);
+export const setActingInterimId = (id: string | null) =>
+  id ? localStorage.setItem(ACTING_KEY, id) : localStorage.removeItem(ACTING_KEY);
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string | null) =>
@@ -16,13 +20,15 @@ export class ApiError extends Error {
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   let res: Response;
+  
   try {
     res = await fetch(path, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init.headers,
+     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+     ...(getActingInterimId() ? { 'X-Acting-Interim': getActingInterimId()! } : {}),
+     ...init.headers,
       },
     });
   } catch {

@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState, useSyncExternalStore } from 'react';
+import { FormEvent, useMemo, useState, useSyncExternalStore,useEffect } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -15,7 +15,7 @@ import {
 import { activity } from '@/data';
 import { AppShell, navigate } from '@/components/Shell';
 import { PriorityBadge, StatusBadge } from '@/components/StatusBadge';
-import { canReviewCompletedWork, getSessionUser, subscribeSession } from '@/session';
+import { canReviewCompletedWork, getEffectiveRole, getSessionUser, subscribeSession } from '@/session';
 import { addWorkFeedback, getWorkOrders, subscribeWorkOrders } from '@/store';
 import {
   FEEDBACK_DECISIONS,
@@ -24,6 +24,9 @@ import {
   type WorkOrder,
   type WorkStatus,
 } from '@/types';
+import { listWorks, addFeedback } from '@/works';
+import { STATUS_FROM_API, DECISION_TO_API, type ApiWork } from '@/workTypes';
+
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -42,6 +45,12 @@ const STATUS_GRADIENTS: Record<WorkStatus, [string, string]> = {
   'Terminé': ['#73ffb7', '#5effb4'],
   'En retard': ['#fd6767', '#fe7070'],
 };
+/*const [works, setWorks] = useState<ApiWork[]>([]);
+const user = useSyncExternalStore(subscribeSession, getSessionUser);
+const canReview = canReviewCompletedWork(getEffectiveRole());
+
+const refreshWorks = () => listWorks().then(({ works }) => setWorks(works)).catch(() => {});
+useEffect(() => { void refreshWorks(); }, []);*/
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
