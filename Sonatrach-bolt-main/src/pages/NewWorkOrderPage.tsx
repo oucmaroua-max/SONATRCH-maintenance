@@ -1,11 +1,11 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardPenLine } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { AppShell, navigate } from '@/components/Shell';
-import { OrgScopeTree } from '@/components/OrgScopeTree';
 import { api } from '@/api';
 import { getEffectiveOrgScope, getEffectiveRole, ROLE_TO_API } from '@/session';
 import { createWork, listAssignableUsers } from '@/works';
 import { PRIORITY_TO_API } from '@/workTypes';
+import { OrgChart } from '@/components/OrgChart';
 
 type OrgResponse = {
   sousDirections: { abrv: string; name: string }[];
@@ -30,7 +30,7 @@ export function NewWorkOrderPage() {
   const [sousDirection, setSousDirection] = useState('');
   const [department, setDepartment] = useState('');
   const [service, setService] = useState('');
-  const [assignedToId, setAssignedToId] = useState('');
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Normale');
@@ -74,7 +74,7 @@ export function NewWorkOrderPage() {
   // Rafraîchit la liste des responsables assignables selon la branche choisie
   useEffect(() => {
     if (loading || !roleApi) return;
-    setAssignedToId('');
+    setAssignedToIds([]);
     listAssignableUsers({
       sousDirectionAbrv: sousDirection || undefined,
       departementAbrv: department || undefined,
@@ -88,14 +88,14 @@ export function NewWorkOrderPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    if (!title || !description || !service || !assignedToId || !startDate) {
+    if (!title || !description || !service || assignedToIds.length === 0 || !startDate) {
       setFormError('Merci de remplir tous les champs obligatoires.');
       return;
     }
     setSaving(true);
     try {
       await createWork({
-        title, description, serviceAbrv: service, assignedToId, startDate, dueDate: dueDate || undefined,
+        title, description, serviceAbrv: service, assignedToIds, startDate, dueDate: dueDate || undefined,
         priority: PRIORITY_TO_API[priority], workerCount: Number(workerCount) || 1,
         unit: unit || undefined, equipment: equipment || undefined, permit: permit || undefined, observation: observation || undefined,
       });
@@ -147,7 +147,27 @@ export function NewWorkOrderPage() {
             ) : (
               <div className="space-y-6">
                 {/* Schéma du périmètre — masqué pour chef de service (un seul service) */}
-                {roleApi !== 'chef_service' && <OrgScopeTree roleApi={roleApi} own={own} org={org} />}
+                {roleApi !== 'chef_service' && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-6">
+                    <p className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Votre périmètre organisationnel — cliquez sur une case pour choisir la partie concernée
+                    </p>
+                    <div className="overflow-x-auto pb-2">
+                      <OrgChart
+                        roleApi={roleApi}
+                        own={own}
+                        org={org}
+                        selection={{ sousDirection, department, service }}
+                        locks={{ sdLocked, depLocked, svcLocked }}
+                        onSelect={(next) => {
+                          if (next.sousDirection !== undefined) setSousDirection(next.sousDirection);
+                          if (next.department !== undefined) setDepartment(next.department);
+                          if (next.service !== undefined) setService(next.service);
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <form onSubmit={onSubmit} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-5">
@@ -198,19 +218,43 @@ export function NewWorkOrderPage() {
                       </div>
                     </div>
 
-                    <label className="block">
+                    {/* ▼▼▼ BLOC REMPLACÉ : Affectation conditionnelle ▼▼▼ */}
+                    <div className="block">
                       <span className="mb-2 block text-sm font-bold text-slate-800">
                         Affecter à ({nextRoleLabel}) <b className="text-red-500">*</b>
                       </span>
-                      <select required value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}
-                        className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100">
-                        <option value="">— Sélectionner —</option>
-                        {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                      </select>
+
+                      {roleApi === 'chef_service' ? (
+                        <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-300 p-2">
+                          {assignees.map((a) => {
+                            const checked = assignedToIds.includes(a.id);
+                            return (
+                              <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => setAssignedToIds((prev) => e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id))}
+                                  className="h-4 w-4 rounded border-slate-300 text-sonatrach focus:ring-orange-100"
+                                />
+                                {a.name}
+                              </label>
+                            );
+                          })}
+                          {assignees.length === 0 && <p className="px-2 py-1.5 text-xs text-slate-400">Aucun employé disponible.</p>}
+                        </div>
+                      ) : (
+                        <select required value={assignedToIds[0] ?? ''} onChange={(e) => setAssignedToIds(e.target.value ? [e.target.value] : [])}
+                          className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100">
+                          <option value="">— Sélectionner —</option>
+                          {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                      )}
+
                       {service && assignees.length === 0 && (
                         <p className="mt-1 text-xs text-amber-600">Aucun {nextRoleLabel} disponible pour cette sélection.</p>
                       )}
-                    </label>
+                    </div>
+                    {/* ▲▲▲ FIN DU BLOC REMPLACÉ ▲▲▲ */}
 
                     <label className="block">
                       <span className="mb-2 block text-sm font-bold text-slate-800">Description <b className="text-red-500">*</b></span>
@@ -274,7 +318,7 @@ export function NewWorkOrderPage() {
 
                     <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
                       <button type="button" onClick={() => navigate('orders')} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annuler</button>
-                      <button disabled={saving} className="rounded-lg bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-60">
+                      <button disabled={saving || assignedToIds.length === 0} className="rounded-lg bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-60">
                         {saving ? 'Création…' : 'Créer le travail'}
                       </button>
                     </div>

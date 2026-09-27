@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '@/db/client';
 import { interimPeriods, users, adminAuditLog } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq , sql} from 'drizzle-orm';
 import { findActiveInterimForDelegating, listInterims, listMyInterims } from '@/models/interim.model';
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
@@ -40,6 +40,7 @@ export async function create(req: Request, res: Response) {
 
   const [created] = await db.insert(interimPeriods).values({
     delegatingUserId, delegateUserId, startDate, endDate, reason, status: 'active',
+    approvedBy: (req as any).auth.userId,
   }).returning();
 
   await db.insert(adminAuditLog).values({
@@ -48,6 +49,54 @@ export async function create(req: Request, res: Response) {
   });
 
   res.status(201).json(created);
+}
+
+// L'utilisateur (responsable) propose lui-même un intérim → statut "en_attente"
+export async function requestByUser(req: Request, res: Response) {
+  const delegatingUserId = (req as any).auth.userId;
+  const delegateUserId = str(req.body?.delegateUserId);
+  const startDate = str(req.body?.startDate);
+  const endDate = str(req.body?.endDate);
+  const reason = str(req.body?.reason) || null;
+
+  if (!delegateUserId || !startDate || !endDate)
+    return res.status(400).json({ error: 'Remplaçant et dates requis' });
+  if (delegatingUserId === delegateUserId)
+    return res.status(400).json({ error: 'Le remplaçant doit être différent de vous-même' });
+  if (await findActiveInterimForDelegating(delegatingUserId))
+    return res.status(409).json({ error: 'Vous avez déjà un intérim actif ou en attente' });
+
+  const [created] = await db.insert(interimPeriods).values({
+    delegatingUserId, delegateUserId, startDate, endDate, reason,
+    status: 'en_attente', requestedBy: delegatingUserId,
+  }).returning();
+
+  res.status(201).json(created);
+}
+
+export async function approve(req: Request, res: Response) {
+  const [interim] = await db.select().from(interimPeriods).where(eq(interimPeriods.id, req.params.id));
+  if (!interim) return res.status(404).json({ error: 'Demande introuvable' });
+  if (interim.status !== 'en_attente') return res.status(400).json({ error: 'Cette demande a déjà été traitée' });
+
+  const [updated] = await db.update(interimPeriods)
+    .set({ status: 'active', approvedBy: (req as any).auth.userId })
+    .where(eq(interimPeriods.id, req.params.id)).returning();
+
+  await db.insert(adminAuditLog).values({
+    adminId: (req as any).auth.userId, targetUserId: interim.delegateUserId, action: 'update',
+    details: { note: `Demande d'intérim approuvée` },
+  });
+
+  res.json(updated);
+}
+
+export async function reject(req: Request, res: Response) {
+  const [updated] = await db.update(interimPeriods)
+    .set({ status: 'refuse' })
+    .where(eq(interimPeriods.id, req.params.id)).returning();
+  if (!updated) return res.status(404).json({ error: 'Demande introuvable' });
+  res.json(updated);
 }
 
 export async function end(req: Request, res: Response) {

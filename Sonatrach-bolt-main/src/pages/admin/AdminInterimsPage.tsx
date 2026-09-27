@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, History, Plus, UserCog } from 'lucide-react';
+import { AlertTriangle, History as HistoryIcon, Plus, UserCog } from 'lucide-react';
 import { AppShell } from '@/components/Shell';
 import { listUsers } from '@/adminUsers';
-import { createInterim, endInterim, listInterims, type Interim } from '@/interims';
+import {
+  createInterim,
+  endInterim,
+  listInterims,
+  approveInterim,
+  rejectInterim,
+  type Interim,
+} from '@/interims';
 import type { User } from '@/types';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -143,10 +150,27 @@ export function AdminInterimsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-                      i.status === 'active' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-500'
+                      i.status === 'active' ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : i.status === 'en_attente' ? 'border-amber-200 bg-amber-50 text-amber-700'
+                      : i.status === 'refuse' ? 'border-red-200 bg-red-50 text-red-700'
+                      : 'border-slate-200 bg-slate-100 text-slate-500'
                     }`}>
-                      {i.status === 'active' ? 'Actif' : i.status === 'termine' ? 'Terminé' : 'Annulé'}
+                      {i.status === 'active' ? 'Actif' : i.status === 'en_attente' ? 'En attente' : i.status === 'refuse' ? 'Refusé' : i.status === 'termine' ? 'Terminé' : 'Annulé'}
                     </span>
+
+                    {i.status === 'en_attente' && (
+                      <div className="flex items-center gap-2">
+                        <button onClick={async () => { await approveInterim(i.id); await load(); }}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                          Approuver
+                        </button>
+                        <button onClick={async () => { await rejectInterim(i.id); await load(); }}
+                          className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
+                          Refuser
+                        </button>
+                      </div>
+                    )}
+
                     {i.status === 'active' && (
                       <button onClick={() => onEnd(i.id)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
                         <AlertTriangle size={13} /> Terminer

@@ -134,3 +134,18 @@ export async function findUserWithOrg(id: string) {
     },
   });
 }
+
+export async function autoReactivateIfExpired(id: string) {
+  const user = await findUserById(id);
+  if (!user) return null;
+  if (user.status === 'inactive' && user.absenceUntil) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (user.absenceUntil < today) {
+      const [updated] = await db.update(users)
+        .set({ status: 'active', absenceUntil: null, absenceReason: null, updatedAt: new Date() })
+        .where(eq(users.id, id)).returning();
+      return updated;
+    }
+  }
+  return user;
+}

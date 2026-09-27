@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 
 export async function findActiveInterimForDelegating(delegatingUserId: string) {
   const rows = await db.select().from(interimPeriods)
-    .where(and(eq(interimPeriods.delegatingUserId, delegatingUserId), eq(interimPeriods.status, 'active')));
+    .where(and(eq(interimPeriods.delegatingUserId, delegatingUserId), inArray(interimPeriods.status, ['active', 'en_attente'])));
   return rows[0] ?? null;
 }
 

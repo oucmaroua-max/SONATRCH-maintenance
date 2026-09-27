@@ -5,7 +5,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Non authentifié' });
   const s = await findValidSession(token);
-  if (!s || s.status !== 'active') return res.status(401).json({ error: 'Session invalide' });
+  if (!s) return res.status(401).json({ error: 'Session invalide' });
+  if (s.status === 'suspended' || s.status === 'pending') return res.status(401).json({ error: 'Session invalide' });
   (req as any).auth = { userId: s.user_id, role: s.role, isAdmin: s.is_admin };
   next();
 }

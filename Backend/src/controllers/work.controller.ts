@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { db } from '@/db/client';
-import { works, workFeedback, users, services, departements } from '@/db/schema';
 import { eq , inArray, desc , sql  } from 'drizzle-orm';
 import { assignableRoleFor, isAssigneeInScope, visibleServiceAbrvs, type OrgScope } from '@/utils/orgScope';
 import { resolveEffectiveScope } from '@/utils/effectiveScope';
 import type { Role } from '@/types';
+import { works, workFeedback, users, services, departements, workAssignees } from '@/db/schema';
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const PRIORITIES = ['critique', 'haute', 'normale'];
@@ -29,15 +29,33 @@ async function enrichWorks(rows: any[]) {
   const svcById = new Map(svcRows.map((s) => [s.id, s]));
   const depByAbrv = new Map(depRows.map((d) => [d.abrv, d]));
 
+  const workIds = rows.map((r) => r.id);
+  const assigneeRows = workIds.length ? await db.select().from(workAssignees).where(inArray(workAssignees.workId, workIds)) : [];
+  const extraUserIds = [...new Set(assigneeRows.map((a) => a.userId))];
+  const extraUsers = extraUserIds.length ? await db.select().from(users).where(inArray(users.id, extraUserIds)) : [];
+  const extraUsersById = new Map(extraUsers.map((u) => [u.id, u]));
+  const assigneesByWork = new Map<string, string[]>();
+  assigneeRows.forEach((a) => {
+    const name = extraUsersById.get(a.userId)?.name;
+    if (!name) return;
+    const list = assigneesByWork.get(a.workId) ?? [];
+    list.push(name);
+    assigneesByWork.set(a.workId, list);
+  });
+
   return rows.map((r) => {
     const svc = svcById.get(r.serviceId);
     const dep = svc?.departementAbrv ? depByAbrv.get(svc.departementAbrv) : null;
+    const extraNames = assigneesByWork.get(r.id) ?? [];
+    const primaryName = r.assignedToId ? usersById.get(r.assignedToId)?.name ?? null : null;
+    const allNames = primaryName && !extraNames.includes(primaryName) ? [primaryName, ...extraNames] : extraNames;
     return {
       ...r,
       serviceName: svc?.name ?? null,
       serviceAbrv: svc?.abrv ?? null,
       departmentName: dep?.name ?? null,
-      assigneeName: r.assignedToId ? usersById.get(r.assignedToId)?.name ?? null : null,
+      assigneeName: primaryName,
+      assigneeNames: allNames.length ? allNames : primaryName ? [primaryName] : [],
       initiatorName: usersById.get(r.initiatorId)?.name ?? null,
     };
   });
@@ -53,6 +71,7 @@ async function canAccessWork(scope: OrgScope, work: any): Promise<boolean> {
 export async function listWorks(req: Request, res: Response) {
   const { scope, actingInterim } = await resolveEffectiveScope(req);
   const visible = await visibleServiceAbrvs(scope);
+  const includeArchived = req.query.includeArchived === 'true';
 
   let rows;
   if (visible === 'all') {
@@ -64,6 +83,8 @@ export async function listWorks(req: Request, res: Response) {
     const svcIds = svcRows.map((s) => s.id);
     rows = svcIds.length ? await db.select().from(works).where(inArray(works.serviceId, svcIds)).orderBy(desc(works.createdAt)) : [];
   }
+
+  if (!includeArchived) rows = rows.filter((w) => !w.archived);
 
   res.json({ works: await enrichWorks(rows), actingInterim });
 }
@@ -116,7 +137,6 @@ export async function createWork(req: Request, res: Response) {
   const title = str(req.body?.title);
   const description = str(req.body?.description);
   const serviceAbrv = str(req.body?.serviceAbrv);
-  const assignedToId = str(req.body?.assignedToId);
   const startDate = str(req.body?.startDate);
   const dueDate = str(req.body?.dueDate) || null;
   const priority = str(req.body?.priority) || 'normale';
@@ -126,28 +146,42 @@ export async function createWork(req: Request, res: Response) {
   const permit = str(req.body?.permit) || null;
   const observation = str(req.body?.observation) || null;
 
-  if (!title || !description || !serviceAbrv || !assignedToId || !startDate)
-    return res.status(400).json({ error: 'Titre, description, service, responsable et date de début requis' });
+  // Accepte soit un tableau assignedToIds (multi, réservé à l'affectation d'employés),
+  // soit un seul assignedToId (comportement historique, toujours accepté).
+  const rawIds: unknown = req.body?.assignedToIds ?? req.body?.assignedToId;
+  const assignedToIds = (Array.isArray(rawIds) ? rawIds : [rawIds]).map(str).filter(Boolean);
+
+  if (!title || !description || !serviceAbrv || assignedToIds.length === 0 || !startDate)
+    return res.status(400).json({ error: 'Titre, description, service, responsable(s) et date de début requis' });
   if (!PRIORITIES.includes(priority)) return res.status(400).json({ error: 'Priorité invalide' });
+  if (requiredAssigneeRole !== 'employe' && assignedToIds.length > 1)
+    return res.status(400).json({ error: "Un seul responsable est autorisé à ce niveau hiérarchique" });
 
   const [service] = await db.select().from(services).where(eq(services.abrv, serviceAbrv));
   if (!service) return res.status(400).json({ error: 'Service introuvable' });
 
-  const [assignee] = await db.select().from(users).where(eq(users.id, assignedToId));
-  if (!assignee) return res.status(400).json({ error: 'Responsable introuvable' });
-  if (assignee.role !== requiredAssigneeRole)
-    return res.status(400).json({ error: `Le responsable doit avoir le rôle ${requiredAssigneeRole}` });
-  if (!isAssigneeInScope(scope, {
-    role: assignee.role, sousDirectionAbrv: assignee.sousDirectionAbrv,
-    departementAbrv: assignee.departementAbrv, serviceAbrv: assignee.serviceAbrv,
-  })) return res.status(403).json({ error: "Ce responsable n'est pas dans votre périmètre" });
+  const assignees = await db.select().from(users).where(inArray(users.id, assignedToIds));
+  if (assignees.length !== assignedToIds.length) return res.status(400).json({ error: 'Un ou plusieurs responsables sont introuvables' });
+
+  for (const assignee of assignees) {
+    if (assignee.role !== requiredAssigneeRole)
+      return res.status(400).json({ error: `Le responsable doit avoir le rôle ${requiredAssigneeRole}` });
+    if (!isAssigneeInScope(scope, {
+      role: assignee.role, sousDirectionAbrv: assignee.sousDirectionAbrv,
+      departementAbrv: assignee.departementAbrv, serviceAbrv: assignee.serviceAbrv,
+    })) return res.status(403).json({ error: "Un responsable choisi n'est pas dans votre périmètre" });
+  }
 
   const [created] = await db.insert(works).values({
     code: await nextCode(), title, unit, equipment, permit,
-    initiatorId: (req as any).auth.userId, assignedToId, serviceId: service.id,
+    initiatorId: (req as any).auth.userId, assignedToId: assignedToIds[0], serviceId: service.id,
     descriptionPrevue: description, observation, priority: priority as any,
     status: 'en_attente', workerCount, progress: 0, startDate, dueDate,
   }).returning();
+
+  if (assignedToIds.length > 1) {
+    await db.insert(workAssignees).values(assignedToIds.map((userId) => ({ workId: created.id, userId })));
+  }
 
   res.status(201).json(created);
 }
@@ -195,6 +229,7 @@ export async function addFeedback(req: Request, res: Response) {
   await db.update(works).set({
     status: approved ? 'termine' : 'en_cours',
     progress: approved ? 100 : Math.min(work.progress ?? 100, 80),
+    archived: approved,
     updatedAt: new Date(),
   }).where(eq(works.id, work.id));
 

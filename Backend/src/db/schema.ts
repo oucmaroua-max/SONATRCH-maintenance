@@ -8,7 +8,7 @@ export const roleEnum = pgEnum('role', ['directeur', 'sous_directeur', 'chef_dep
 export const userStatusEnum = pgEnum('user_status', ['pending', 'active', 'inactive', 'suspended']);
 export const workStatusEnum = pgEnum('work_status', ['en_attente', 'en_cours', 'termine', 'en_retard', 'annule']);
 export const priorityEnum = pgEnum('priority', ['critique', 'haute', 'normale']);
-export const interimStatusEnum = pgEnum('interim_status', ['active', 'termine', 'annule']);
+export const interimStatusEnum = pgEnum('interim_status', ['en_attente', 'active', 'refuse', 'termine', 'annule']);
 export const adminActionEnum = pgEnum('admin_action', ['create', 'update', 'approve', 'suspend', 'reactivate', 'reset_password']);
 export const feedbackDecisionEnum = pgEnum('feedback_decision', ['valide', 'valide_reserves', 'non_valide']);
 
@@ -57,6 +57,8 @@ export const users = pgTable('users', {
   invitedBy: uuid('invited_by'),
   approvedBy: uuid('approved_by'),
   approvedAt: timestamp('approved_at'),
+  absenceReason: text('absence_reason'),
+  absenceUntil: text('absence_until'), // date ISO (YYYY-MM-DD), fin prévue de l'absence
 });
 
 /* ---------- sessions ---------- */
@@ -76,15 +78,16 @@ export const interimPeriods = pgTable('interim_periods', {
   id: uuid('id').primaryKey().defaultRandom(),
   delegatingUserId: uuid('delegating_user_id').notNull().references(() => users.id),
   delegateUserId: uuid('delegate_user_id').notNull().references(() => users.id),
-  startDate: text('start_date').notNull(), // DATE -> tu peux aussi utiliser date()
+  startDate: text('start_date').notNull(),
   endDate: text('end_date').notNull(),
-  status: interimStatusEnum('status').notNull().default('active'),
+  status: interimStatusEnum('status').notNull().default('en_attente'),
   reason: text('reason'),
+  requestedBy: uuid('requested_by').references(() => users.id),
+  approvedBy: uuid('approved_by').references(() => users.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   endedAt: timestamp('ended_at'),
   endedBy: uuid('ended_by').references(() => users.id),
 });
-
 /* ---------- works ---------- */
 export const works = pgTable('works', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -100,6 +103,7 @@ export const works = pgTable('works', {
   observation: text('observation'),
   priority: priorityEnum('priority').notNull().default('normale'),
   status: workStatusEnum('status').notNull().default('en_attente'),
+  archived: boolean('archived').notNull().default(false),
   workerCount: integer('worker_count').notNull().default(1),
   progress: integer('progress').notNull().default(0),
   startDate: text('start_date').notNull(),
@@ -173,3 +177,10 @@ export const worksRelations = relations(works, ({ one, many }) => ({
   service: one(services, { fields: [works.serviceId], references: [services.id] }),
   feedbacks: many(workFeedback),
 }));
+
+/* ---------- work_assignees (affectation multiple, employés) ---------- */
+export const workAssignees = pgTable('work_assignees', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workId: uuid('work_id').notNull().references(() => works.id),
+  userId: uuid('user_id').notNull().references(() => users.id),
+});

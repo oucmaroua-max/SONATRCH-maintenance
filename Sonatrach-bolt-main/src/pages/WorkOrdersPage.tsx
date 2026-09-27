@@ -83,7 +83,7 @@ export function WorkOrdersPage() {
                   {filtered.map((w) => (
                     <tr key={w.id} onClick={() => navigate(`orders/${w.id}`)} className="cursor-pointer transition hover:bg-orange-50/30">
                       <td className="px-5 py-4 font-mono text-xs font-bold text-sonatrach">{w.code}<p className="mt-1 font-sans text-[11px] font-normal text-slate-400">{w.startDate}</p></td>
-                      <td className="px-5 py-4"><p className="text-sm font-bold text-slate-800">{w.title}</p><p className="mt-1 text-xs text-slate-500">{w.unit ?? '—'} · {w.assigneeName ?? '—'}</p></td>
+                      <td className="px-5 py-4"><p className="text-sm font-bold text-slate-800">{w.title}</p><p className="mt-1 text-xs text-slate-500">{w.unit ?? '—'} · {w.assigneeNames?.length ? w.assigneeNames.join(', ') : '—'}</p></td>
                       <td className="px-5 py-4 text-xs font-semibold text-slate-600">{w.serviceName}<p className="text-[11px] font-normal text-slate-400">{w.departmentName}</p></td>
                       <td className="px-5 py-4"><span className="text-xs font-bold">{PRIORITY_FROM_API[w.priority] ?? w.priority}</span></td>
                       <td className="px-5 py-4"><span className="rounded-full border px-2.5 py-1 text-[11px] font-bold">{STATUS_FROM_API[w.status] ?? w.status}</span></td>

@@ -11,6 +11,9 @@ import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage';
 import { AdminOrgStructurePage } from '@/pages/admin/AdminOrgStructurePage';
 import { AppShell, navigate } from '@/components/Shell';
 import { getSessionUser, isLoggedIn, refreshSession, subscribeSession } from '@/session';
+import { AdminInterimsPage } from '@/pages/admin/AdminInterimsPage';
+import { ProfilePage } from '@/pages/ProfilePage';
+
 
 function getPath() { return window.location.pathname.replace(/^\//, ''); }
 
@@ -61,6 +64,7 @@ function App() {
   if (path === 'login') return <LoginPage />;
   if (!isPublic && !authed) return null;                       // redirection en cours
   if (path.startsWith('admin') && !user.isAdmin) return <Forbidden />;
+  if (path === 'profile') return <ProfilePage />;
 
   if (path === 'dashboard') return <DashboardPage />;
   if (path.startsWith('orders/')) return <WorkOrderDetailPage key={path} id={decodeURIComponent(path.slice('orders/'.length))} />;

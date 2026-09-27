@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore,FormEvent } from 'react';
+import { useEffect, useState, useSyncExternalStore, FormEvent } from 'react';
 import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory, Users, Building2 } from 'lucide-react';
 import { Brand } from '@/components/Brand';
 import logo from '@/assets/sonatrach-logo.png';
@@ -6,10 +6,11 @@ import { getSessionUser, logout, subscribeSession, userInitials } from '@/sessio
 import type { LucideIcon } from 'lucide-react';
 export const sonatrachLogo = logo;
 
-//export type PageKey = 'home' | 'login' | 'dashboard' | 'orders' | 'new-order';
+// 1. Ajout de 'profile' au type PageKey
 export type PageKey =
   | 'home' | 'login' | 'dashboard' | 'orders' | 'new-order'
-  | 'admin-users' | 'admin-user-form' | 'admin-user-detail' | 'admin-org';
+  | 'admin-users' | 'admin-user-form' | 'admin-user-detail' | 'admin-org'
+  | 'profile'; 
 
 const links: { key: PageKey; label: string }[] = [
   { key: 'home', label: 'Accueil' },
@@ -206,13 +207,18 @@ export function Header({ active }: { active: PageKey }) {
           <button className="relative hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 sm:block">
             <Bell size={19} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sonatrach" />
           </button>
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-bold text-slate-900">{user.name}</p>
-            <p className="text-[11px] font-medium text-slate-500">{user.role}</p>
-          </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-xs font-bold text-sonatrach">
-            {userInitials(user.name)}
-          </div>
+          
+          {/* 2. Remplacement de la carte d'identité par un bouton cliquable */}
+          <button onClick={() => navigate('profile')} className="hidden items-center gap-3 rounded-lg px-2 py-1 text-right transition hover:bg-slate-100 sm:flex">
+            <div>
+              <p className="text-xs font-bold text-slate-900">{user.name}</p>
+              <p className="text-[11px] font-medium text-slate-500">{user.role}</p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-orange-200 bg-orange-50 text-xs font-bold text-sonatrach">
+              {userInitials(user.name)}
+            </div>
+          </button>
+
           {/* Retour à l'espace travaux depuis l'admin, sinon déconnexion normale. */}
           <button
             onClick={() => (admin ? navigate('dashboard') : onLogout())}

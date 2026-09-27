@@ -14,5 +14,9 @@ export type ApiWork = {
   workerCount: number; progress: number; startDate: string; dueDate: string | null;
   assignedToId: string | null; serviceId: string; createdAt: string;
   serviceName: string | null; serviceAbrv: string | null; departmentName: string | null;
-  assigneeName: string | null; initiatorName: string | null;
+  assigneeName: string | null; assigneeNames: string[]; initiatorName: string | null;
+};
+
+export const STATUS_TO_API: Record<string, string> = {
+  'En attente': 'en_attente', 'En cours': 'en_cours', 'Terminé': 'termine', 'En retard': 'en_retard', 'Annulé': 'annule',
 };

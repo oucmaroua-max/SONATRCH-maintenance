@@ -13,8 +13,6 @@ const app = express();
 app.use(cors({ origin: 'http://127.0.0.1:5173' }));
 app.use(express.json());
 
-
-
 // Travaux
 app.get('/api/works', requireAuth, workCtrl.listWorks);
 app.get('/api/works/assignable-users', requireAuth, workCtrl.listAssignableUsers);
@@ -40,7 +38,10 @@ app.patch('/api/interims/:id/end', ...admin, interimCtrl.end);
 app.post('/api/org/sous-directions', ...admin, org.addSousDirection);
 app.post('/api/org/departements', ...admin, org.addDepartement);
 app.post('/api/org/services', ...admin, org.addService);
-
+// Demandes d'intérim (self-service)
+app.post('/api/interims/request', requireAuth, interimCtrl.requestByUser);
+app.patch('/api/interims/:id/approve', ...admin, interimCtrl.approve);
+app.patch('/api/interims/:id/reject', ...admin, interimCtrl.reject);
 app.patch('/api/org/sous-directions/:abrv', ...admin, org.editSousDirection);
 app.patch('/api/org/departements/:abrv', ...admin, org.editDepartement);
 app.patch('/api/org/services/:abrv', ...admin, org.editService);
@@ -55,6 +56,14 @@ app.post('/api/users', ...admin, userCtrl.createUserHandler);
 app.patch('/api/users/:id', ...admin, userCtrl.updateUserHandler);
 app.patch('/api/users/:id/status', ...admin, userCtrl.updateUserStatusHandler);
 app.post('/api/users/:id/reset-password', ...admin, userCtrl.resetPasswordHandler);
+
+// Profil personnel
+app.get('/api/me/profile', requireAuth, userCtrl.getMyProfile);
+app.post('/api/me/change-password', requireAuth, userCtrl.changeMyPassword);
+app.post('/api/me/declare-absence', requireAuth, userCtrl.declareAbsence);
+app.post('/api/me/declare-return', requireAuth, userCtrl.declareReturn);
+
+
 
 // Gestion d'erreurs (doit être après les routes)
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
