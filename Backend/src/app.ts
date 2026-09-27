@@ -8,6 +8,7 @@ import * as userCtrl from '@/controllers/user.controller';
 
 import * as interimCtrl from '@/controllers/interim.controller';
 import * as workCtrl from '@/controllers/work.controller';
+import * as notifCtrl from '@/controllers/notification.controller';
 
 const app = express();
 app.use(cors({ origin: 'http://127.0.0.1:5173' }));
@@ -21,6 +22,9 @@ app.get('/api/works/:id', requireAuth, workCtrl.getWork);
 app.patch('/api/works/:id', requireAuth, workCtrl.updateWork);
 app.post('/api/works/:id/feedback', requireAuth, workCtrl.addFeedback);
 
+app.get('/api/notifications', requireAuth, notifCtrl.list);
+app.patch('/api/notifications/:id/read', requireAuth, notifCtrl.markOneRead);
+app.patch('/api/notifications/read-all', requireAuth, notifCtrl.markAllReadHandler);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

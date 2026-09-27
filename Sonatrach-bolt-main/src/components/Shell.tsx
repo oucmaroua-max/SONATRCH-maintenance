@@ -1,11 +1,12 @@
-import { useEffect, useState, useSyncExternalStore, FormEvent } from 'react';
-import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory, Users, Building2 } from 'lucide-react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Bell, FileText, Home, LogOut, Mail, Menu, ShieldCheck, X, Factory, Users, Building2, History as HistoryIcon } from 'lucide-react';
 import { Brand } from '@/components/Brand';
 import logo from '@/assets/sonatrach-logo.png';
 import { getSessionUser, logout, subscribeSession, userInitials } from '@/session';
 import type { LucideIcon } from 'lucide-react';
-export const sonatrachLogo = logo;
+import { listNotifications, markAllNotificationsRead, markNotificationRead, type AppNotification } from '@/notifications';
 
+export const sonatrachLogo = logo;
 // 1. Ajout de 'profile' au type PageKey
 export type PageKey =
   | 'home' | 'login' | 'dashboard' | 'orders' | 'new-order'
@@ -204,9 +205,9 @@ export function Header({ active }: { active: PageKey }) {
         </nav>
 
         <div className="flex items-center gap-3">
-          <button className="relative hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 sm:block">
-            <Bell size={19} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-sonatrach" />
-          </button>
+          <div className="hidden sm:block">
+  <NotificationBell />
+</div>
           
           {/* 2. Remplacement de la carte d'identité par un bouton cliquable */}
           <button onClick={() => navigate('profile')} className="hidden items-center gap-3 rounded-lg px-2 py-1 text-right transition hover:bg-slate-100 sm:flex">
@@ -256,6 +257,94 @@ export function Header({ active }: { active: PageKey }) {
         </div>
       )}
     </header>
+  );
+}
+
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [unread, setUnread] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  async function load() {
+    try {
+      const { notifications, unreadCount } = await listNotifications();
+      setItems(notifications);
+      setUnread(unreadCount);
+    } catch { /* silencieux : ne bloque pas l'UI */ }
+  }
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 30000); // rafraîchit toutes les 30s
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  async function onOpenItem(n: AppNotification) {
+    if (!n.read) {
+      await markNotificationRead(n.id);
+      setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
+      setUnread((u) => Math.max(0, u - 1));
+    }
+    setOpen(false);
+    if (n.link) navigate(n.link);
+  }
+
+  async function onMarkAllRead() {
+    await markAllNotificationsRead();
+    setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+    setUnread(0);
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen((v) => !v)} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+        <Bell size={19} />
+        {unread > 0 && (
+          <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sonatrach px-1 text-[9px] font-bold text-white">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-bold text-slate-900">Notifications</p>
+            {unread > 0 && (
+              <button onClick={onMarkAllRead} className="text-xs font-semibold text-sonatrach hover:underline">
+                Tout marquer comme lu
+              </button>
+            )}
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {items.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-400">Aucune notification.</p>}
+            {items.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => onOpenItem(n)}
+                className={`flex w-full flex-col items-start gap-0.5 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50 ${!n.read ? 'bg-orange-50/40' : ''}`}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className={`text-xs font-bold ${!n.read ? 'text-slate-900' : 'text-slate-600'}`}>{n.title}</span>
+                  {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sonatrach" />}
+                </div>
+                <span className="text-[11px] leading-5 text-slate-500">{n.message}</span>
+                <span className="text-[10px] text-slate-400">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

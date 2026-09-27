@@ -9,6 +9,7 @@ import { adminAuditLog, userPositionHistory, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import type { Role, UserStatus, AdminAction } from '@/types';
 import { autoReactivateIfExpired } from '@/models/user.model';
+import { notifyAllAdmins } from '@/models/notification.model';
 
 const ROLES: Role[] = ['directeur', 'sous_directeur', 'chef_departement', 'chef_service', 'employe'];
 const STATUSES: UserStatus[] = ['pending', 'active', 'inactive', 'suspended'];
@@ -157,6 +158,11 @@ export async function declareAbsence(req: Request, res: Response) {
     details: { note: `Absence déclarée (${reason}) jusqu'au ${endDate}` },
   });
 
+    await notifyAllAdmins(
+    'absence_declared', 'Absence déclarée',
+    `${current.name} a déclaré une absence (${reason}) jusqu'au ${endDate}.`, `admin-user-detail/${userId}`,
+  );
+
   res.json(safe(updated));
 }
 
@@ -170,6 +176,12 @@ export async function declareReturn(req: Request, res: Response) {
     adminId: userId, targetUserId: userId, action: 'update',
     details: { note: "Retour anticipé déclaré par l'utilisateur" },
   });
+
+    const before = await findUserById(userId);
+  await notifyAllAdmins(
+    'absence_ended', 'Retour de congé/maladie',
+    `${before?.name ?? 'Un utilisateur'} a déclaré son retour.`, `admin-user-detail/${userId}`,
+  );
 
   res.json(safe(updated));
 }

@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { interimPeriods, users, adminAuditLog } from '@/db/schema';
 import { eq , sql} from 'drizzle-orm';
 import { findActiveInterimForDelegating, listInterims, listMyInterims } from '@/models/interim.model';
+import { notify, notifyAllAdmins } from '@/models/notification.model';
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
@@ -48,6 +49,11 @@ export async function create(req: Request, res: Response) {
     details: { note: `Intérim créé (${startDate} → ${endDate})` },
   });
 
+    await notify(
+    delegateUserId, 'interim_created', 'Vous avez été désigné remplaçant',
+    `Vous remplacez un collègue du ${startDate} au ${endDate}.`, 'profile',
+  );
+
   res.status(201).json(created);
 }
 
@@ -71,6 +77,11 @@ export async function requestByUser(req: Request, res: Response) {
     status: 'en_attente', requestedBy: delegatingUserId,
   }).returning();
 
+    await notifyAllAdmins(
+    'interim_requested', 'Nouvelle demande d\'intérim',
+    `Une demande d'intérim a été soumise et attend votre validation.`, 'admin-interims',
+  );
+
   res.status(201).json(created);
 }
 
@@ -88,17 +99,29 @@ export async function approve(req: Request, res: Response) {
     details: { note: `Demande d'intérim approuvée` },
   });
 
+    await notify(
+    interim.delegateUserId, 'interim_approved', 'Intérim approuvé',
+    `Votre intérim du ${interim.startDate} au ${interim.endDate} a été validé.`, 'profile',
+  );
+
   res.json(updated);
 }
 
 export async function reject(req: Request, res: Response) {
+  const [interim] = await db.select().from(interimPeriods).where(eq(interimPeriods.id, req.params.id));
+  if (!interim) return res.status(404).json({ error: 'Demande introuvable' });
+
   const [updated] = await db.update(interimPeriods)
     .set({ status: 'refuse' })
     .where(eq(interimPeriods.id, req.params.id)).returning();
-  if (!updated) return res.status(404).json({ error: 'Demande introuvable' });
+
+  await notify(
+    interim.delegatingUserId, 'interim_rejected', 'Demande d\'intérim refusée',
+    `Votre demande d'intérim (${interim.startDate} → ${interim.endDate}) a été refusée par l'administrateur.`, 'profile',
+  );
+
   res.json(updated);
 }
-
 export async function end(req: Request, res: Response) {
   const [updated] = await db.update(interimPeriods)
     .set({ status: 'termine', endedAt: new Date(), endedBy: (req as any).auth.userId })

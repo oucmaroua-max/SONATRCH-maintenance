@@ -5,6 +5,7 @@ import { assignableRoleFor, isAssigneeInScope, visibleServiceAbrvs, type OrgScop
 import { resolveEffectiveScope } from '@/utils/effectiveScope';
 import type { Role } from '@/types';
 import { works, workFeedback, users, services, departements, workAssignees } from '@/db/schema';
+import { notifyMany } from '@/models/notification.model';
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const PRIORITIES = ['critique', 'haute', 'normale'];
@@ -182,6 +183,14 @@ export async function createWork(req: Request, res: Response) {
   if (assignedToIds.length > 1) {
     await db.insert(workAssignees).values(assignedToIds.map((userId) => ({ workId: created.id, userId })));
   }
+
+   await notifyMany(
+    assignedToIds,
+    'work_assigned',
+    'Nouveau travail affecté',
+    `${title} (${created.code}) vous a été affecté.`,
+    `orders/${created.id}`,
+  );
 
   res.status(201).json(created);
 }

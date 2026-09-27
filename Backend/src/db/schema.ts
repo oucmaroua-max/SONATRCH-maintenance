@@ -12,6 +12,10 @@ export const interimStatusEnum = pgEnum('interim_status', ['en_attente', 'active
 export const adminActionEnum = pgEnum('admin_action', ['create', 'update', 'approve', 'suspend', 'reactivate', 'reset_password']);
 export const feedbackDecisionEnum = pgEnum('feedback_decision', ['valide', 'valide_reserves', 'non_valide']);
 
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'work_assigned', 'interim_requested', 'interim_approved', 'interim_rejected',
+  'interim_created', 'absence_declared', 'absence_ended',
+]);
 
 /* ---------- sous_directions ---------- */
 export const sousDirections = pgTable('sous_directions', {
@@ -183,4 +187,16 @@ export const workAssignees = pgTable('work_assignees', {
   id: uuid('id').primaryKey().defaultRandom(),
   workId: uuid('work_id').notNull().references(() => works.id),
   userId: uuid('user_id').notNull().references(() => users.id),
+});
+
+/* ---------- notifications ---------- */
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  type: notificationTypeEnum('type').notNull(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  link: text('link'),
+  read: boolean('read').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
