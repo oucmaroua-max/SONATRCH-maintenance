@@ -26,6 +26,7 @@ app.get('/api/notifications', requireAuth, notifCtrl.list);
 app.patch('/api/notifications/:id/read', requireAuth, notifCtrl.markOneRead);
 app.patch('/api/notifications/read-all', requireAuth, notifCtrl.markAllReadHandler);
 
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/auth/login', login);
@@ -38,10 +39,12 @@ const admin = [requireAuth, requireAdmin];
 app.get('/api/interims/mine', requireAuth, interimCtrl.mine);
 app.get('/api/interims', ...admin, interimCtrl.list);
 app.post('/api/interims', ...admin, interimCtrl.create);
-app.patch('/api/interims/:id/end', ...admin, interimCtrl.end);
+// ⚠️ Route supprimée : `interimCtrl.end` n'existe pas dans le controller.
+//    À réactiver le jour où tu ajoutes `export async function end(...)`.
 app.post('/api/org/sous-directions', ...admin, org.addSousDirection);
 app.post('/api/org/departements', ...admin, org.addDepartement);
 app.post('/api/org/services', ...admin, org.addService);
+
 // Demandes d'intérim (self-service)
 app.post('/api/interims/request', requireAuth, interimCtrl.requestByUser);
 app.patch('/api/interims/:id/approve', ...admin, interimCtrl.approve);
@@ -49,7 +52,6 @@ app.patch('/api/interims/:id/reject', ...admin, interimCtrl.reject);
 app.patch('/api/org/sous-directions/:abrv', ...admin, org.editSousDirection);
 app.patch('/api/org/departements/:abrv', ...admin, org.editDepartement);
 app.patch('/api/org/services/:abrv', ...admin, org.editService);
-
 app.delete('/api/org/sous-directions/:abrv', ...admin, org.removeSousDirection);
 app.delete('/api/org/departements/:abrv', ...admin, org.removeDepartement);
 app.delete('/api/org/services/:abrv', ...admin, org.removeService);
@@ -67,7 +69,10 @@ app.post('/api/me/change-password', requireAuth, userCtrl.changeMyPassword);
 app.post('/api/me/declare-absence', requireAuth, userCtrl.declareAbsence);
 app.post('/api/me/declare-return', requireAuth, userCtrl.declareReturn);
 
-
+// Réponse du remplaçant à une demande d'intérim (self-service, une seule fois)
+app.patch('/api/interims/:id/accept', requireAuth, interimCtrl.acceptByDelegate);
+app.patch('/api/interims/:id/decline', requireAuth, interimCtrl.declineByDelegate);
+app.patch('/api/interims/:id/end-early', requireAuth, interimCtrl.endEarly);
 
 // Gestion d'erreurs (doit être après les routes)
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

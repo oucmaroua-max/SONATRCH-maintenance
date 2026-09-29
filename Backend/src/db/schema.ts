@@ -15,6 +15,8 @@ export const feedbackDecisionEnum = pgEnum('feedback_decision', ['valide', 'vali
 export const notificationTypeEnum = pgEnum('notification_type', [
   'work_assigned', 'interim_requested', 'interim_approved', 'interim_rejected',
   'interim_created', 'absence_declared', 'absence_ended',
+  'feedback_received', 'interim_response_needed', 'interim_accepted', 'interim_declined',
+  'interim_ended_early',
 ]);
 
 /* ---------- sous_directions ---------- */
@@ -197,6 +199,7 @@ export const notifications = pgTable('notifications', {
   title: text('title').notNull(),
   message: text('message').notNull(),
   link: text('link'),
+  entityId: uuid('entity_id'),
   read: boolean('read').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

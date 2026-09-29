@@ -2,12 +2,13 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, KeyRound, Mail, ShieldAlert, User as UserIcon, UserCog } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { api } from '@/api';
-import { listUsers } from '@/adminUsers';
+import { listAssignableUsers } from '@/works';
 import { roleFromApi } from '@/adminRoles';
 import { changeMyPassword, declareAbsence, declareReturn, getMyProfile, type MyProfile } from '@/profile';
 import { listInterims, requestInterim, type Interim } from '@/interims';
 import { getSessionUser, refreshSession } from '@/session';
 import type { User } from '@/types';
+import { endInterimEarly, listMyInterims as listMyInterimsApi } from '@/interims';
 
 type OrgResponse = {
   sousDirections: { abrv: string; name: string }[];
@@ -81,14 +82,14 @@ export function ProfilePage() {
             <h1 className="heading mt-2 text-3xl font-extrabold text-slate-950">Profil</h1>
           </div>
 
-          <ProfileInfoCard profile={profile} sdName={sdName} depName={depName} svcName={svcName} />
-          <ChangePasswordCard />
+         <ProfileInfoCard profile={profile} sdName={sdName} depName={depName} svcName={svcName} />
+<ChangePasswordCard />
 
-          {isManagement ? (
-            <InterimRequestCard />
-          ) : (
-            <AbsenceCard profile={profile} onUpdated={load} />
-          )}
+{isManagement ? (
+  <InterimRequestCard />
+) : (
+  <AbsenceCard profile={profile} onUpdated={load} />
+)}
         </div>
       </main>
     </AppShell>
@@ -286,11 +287,69 @@ function AbsenceCard({ profile, onUpdated }: { profile: MyProfile; onUpdated: ()
   );
 }
 
+function ActiveInterimCard() {
+  const user = getSessionUser();
+  const [interim, setInterim] = useState<Interim | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [ending, setEnding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const all = await listMyInterimsApi();
+      const active = all.find((i) => i.status === 'active' && (i.delegatingUserId === user.id || i.delegateUserId === user.id));
+      setInterim(active ?? null);
+    } catch {
+      /* section secondaire */
+    } finally {
+      setLoading(false);
+    }
+  }, [user.id]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function onEnd() {
+    if (!interim) return;
+    setError(null);
+    setEnding(true);
+    try {
+      await endInterimEarly(interim.id);
+      await load();
+      await refreshSession();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Action impossible');
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  if (loading || !interim) return null;
+
+  const isDelegating = interim.delegatingUserId === user.id;
+
+  return (
+    <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+      <h2 className="heading flex items-center gap-2 text-lg font-bold text-emerald-900">
+        <UserCog size={18} /> Intérim en cours
+      </h2>
+      <p className="mt-2 text-sm text-emerald-800">
+        {isDelegating
+          ? `${interim.delegateUser?.name} vous remplace du ${interim.startDate} au ${interim.endDate}.`
+          : `Vous remplacez ${interim.delegatingUser?.name} du ${interim.startDate} au ${interim.endDate}.`}
+      </p>
+      {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
+      <button onClick={onEnd} disabled={ending} className="mt-4 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
+        {ending ? 'Enregistrement…' : isDelegating ? 'Je suis de retour — mettre fin à l\'intérim' : 'Annuler mon intérim'}
+      </button>
+    </section>
+  );
+}
+
 /* ---------------- Intérim (responsables : directeur, sous-directeur, chef dep, chef service) ---------------- */
 
 function InterimRequestCard() {
   const user = getSessionUser();
-  const [colleagues, setColleagues] = useState<User[]>([]);
+  const [colleagues, setColleagues] = useState<{ id: string; name: string; role: string }[]>([]);
   const [myInterims, setMyInterims] = useState<Interim[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -301,11 +360,12 @@ function InterimRequestCard() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [ending, setEnding] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [users, all] = await Promise.all([listUsers(), listInterims()]);
-      setColleagues(users.filter((u) => u.id !== user.id && u.status === 'active'));
+      const [assignable, all] = await Promise.all([listAssignableUsers(), listMyInterimsApi()]);
+      setColleagues(assignable);
       setMyInterims(all.filter((i) => i.delegatingUserId === user.id));
     } catch {
       /* section secondaire : on n'affiche pas d'erreur bloquante */
@@ -316,7 +376,8 @@ function InterimRequestCard() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const pending = myInterims.find((i) => i.status === 'en_attente' || i.status === 'active');
+  const active = myInterims.find((i) => i.status === 'active');
+  const pending = myInterims.find((i) => i.status === 'en_attente');
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -336,14 +397,48 @@ function InterimRequestCard() {
     }
   }
 
+  async function onEnd() {
+    if (!active) return;
+    setError(null);
+    setEnding(true);
+    try {
+      await endInterimEarly(active.id);
+      await load();
+      await refreshSession();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Action impossible');
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  // Intérim actif : un seul cadre, avec le statut et le bouton de fin.
+  if (!loading && active) {
+    return (
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+        <h2 className="heading flex items-center gap-2 text-lg font-bold text-emerald-900">
+          <UserCog size={18} /> Intérim en cours
+        </h2>
+        <p className="mt-2 text-sm text-emerald-800">
+          {active.delegateUser?.name} vous remplace du {active.startDate} au {active.endDate}.
+        </p>
+        {error && <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
+        <button onClick={onEnd} disabled={ending} className="mt-4 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60">
+          {ending ? 'Enregistrement…' : "Je suis de retour — mettre fin à l'intérim"}
+        </button>
+      </section>
+    );
+  }
+
+  // Sinon : cadre du formulaire de déclaration (ou message "en attente" si une demande est en cours).
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
         <UserCog size={18} /> Déclarer un intérim
       </h2>
       <p className="mt-1 text-xs text-slate-500">
-        En cas d'absence, proposez un remplaçant. Votre demande sera transmise à l'administrateur pour validation.
-        Votre compte reste actif ; c'est le remplaçant qui bascule vers votre espace le temps de l'intérim.
+        En cas d'absence, proposez un remplaçant de votre périmètre direct. Votre compte reste actif ;
+        l'intérim devient effectif dès que le remplaçant l'accepte.
       </p>
 
       {loading && <p className="mt-4 text-sm text-slate-500">Chargement…</p>}
@@ -352,7 +447,7 @@ function InterimRequestCard() {
         <div className="mt-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-blue-600" />
           <span>
-            Une demande d'intérim {pending.status === 'en_attente' ? 'est en attente de validation' : 'est déjà active'} pour vous
+            Une demande d'intérim est en attente de réponse du remplaçant
             ({pending.delegateUser?.name}, {pending.startDate} → {pending.endDate}).
           </span>
         </div>
@@ -366,8 +461,9 @@ function InterimRequestCard() {
               <select value={delegateUserId} onChange={(e) => setDelegateUserId(e.target.value)}
                 className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100">
                 <option value="">— Sélectionner —</option>
-                {colleagues.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.role})</option>)}
+                {colleagues.map((c) => <option key={c.id} value={c.id}>{c.name} ({roleFromApi(c.role)})</option>)}
               </select>
+              {colleagues.length === 0 && <p className="mt-1 text-xs text-amber-600">Aucun remplaçant disponible dans votre périmètre.</p>}
             </label>
             <label className="block">
               <span className="mb-1.5 block text-sm font-bold text-slate-700">Motif</span>
@@ -386,7 +482,7 @@ function InterimRequestCard() {
             </label>
           </div>
           {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
-          {done && <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CheckCircle2 size={14} /> Demande envoyée à l'administrateur.</p>}
+          {done && <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CheckCircle2 size={14} /> Demande envoyée au remplaçant.</p>}
           <button disabled={saving} className="rounded-lg bg-sonatrach px-5 py-2.5 text-sm font-bold text-white hover:bg-sonatrach-600 disabled:opacity-60">
             {saving ? 'Envoi…' : 'Envoyer la demande'}
           </button>

@@ -18,6 +18,7 @@ import { canReviewCompletedWork, getEffectiveRole, getSessionUser, subscribeSess
 import { addFeedback, listWorks } from '@/works';
 import { DECISION_TO_API, PRIORITY_FROM_API, STATUS_FROM_API, type ApiWork } from '@/workTypes';
 import { FEEDBACK_DECISIONS, isFeedbackApproved, type FeedbackDecision } from '@/types';
+import { InterimBanner } from '@/components/InterimBanner';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -494,6 +495,7 @@ export function DashboardPage() {
         <div className="mx-auto max-w-7xl space-y-7 px-4 py-8 lg:px-8">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
+              <InterimBanner />
               <p className="text-xs font-bold uppercase tracking-[.2em] text-sonatrach">
                 {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
               </p>

@@ -7,6 +7,7 @@ import type { Role } from '@/types';
 import { works, workFeedback, users, services, departements, workAssignees } from '@/db/schema';
 import { notifyMany } from '@/models/notification.model';
 
+
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const PRIORITIES = ['critique', 'haute', 'normale'];
 const STATUSES = ['en_attente', 'en_cours', 'termine', 'en_retard', 'annule'];
@@ -241,6 +242,22 @@ export async function addFeedback(req: Request, res: Response) {
     archived: approved,
     updatedAt: new Date(),
   }).where(eq(works.id, work.id));
+
+  // Notifie la ou les personnes qui ont réalisé le travail (responsable + employés affectés)
+  const extraRows = await db.select().from(workAssignees).where(eq(workAssignees.workId, work.id));
+  const recipients = [...new Set([work.assignedToId, ...extraRows.map((r) => r.userId)].filter(Boolean))] as string[];
+
+  const DECISION_LABELS: Record<string, string> = {
+    valide: 'Validé', valide_reserves: 'Validé avec réserves', non_valide: 'Non validé',
+    a_reprendre: 'À reprendre', non_conforme_hse: 'Non conforme HSE',
+  };
+  await notifyMany(
+    recipients,
+    'feedback_received',
+    approved ? 'Votre travail a été validé' : 'Retour sur votre travail',
+    `${work.title} (${work.code}) — Décision : ${DECISION_LABELS[decision]}. ${comment}`,
+    `orders/${work.id}`,
+  );
 
   res.status(201).json(created);
 }

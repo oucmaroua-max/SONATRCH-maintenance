@@ -96,6 +96,7 @@ export function getEffectiveOrgScope() {
 }
 
 export async function login(identifier: string, password: string) {
+  exitInterim(); // évite qu'un résidu du compte précédent ne s'applique au nouveau compte
   const data = await api<{ token: string; user: ApiUser }>('/api/auth/login', {
     method: 'POST', body: JSON.stringify({ identifier, password }),
   });

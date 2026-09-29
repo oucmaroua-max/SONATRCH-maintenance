@@ -1,4 +1,6 @@
 import { api } from '@/api';
+export const acceptInterim = (id: string) => api<Interim>(`/api/interims/${id}/accept`, { method: 'PATCH' });
+export const declineInterim = (id: string) => api<Interim>(`/api/interims/${id}/decline`, { method: 'PATCH' });
 
 export type Interim = {
   id: string; delegatingUserId: string; delegateUserId: string; startDate: string; endDate: string;
@@ -16,3 +18,5 @@ export const requestInterim = (body: { delegateUserId: string; startDate: string
   api<Interim>('/api/interims/request', { method: 'POST', body: JSON.stringify(body) });
 export const approveInterim = (id: string) => api<Interim>(`/api/interims/${id}/approve`, { method: 'PATCH' });
 export const rejectInterim = (id: string) => api<Interim>(`/api/interims/${id}/reject`, { method: 'PATCH' });
+export const listMyInterims = () => api<Interim[]>('/api/interims/mine');
+export const endInterimEarly = (id: string) => api<Interim>(`/api/interims/${id}/end-early`, { method: 'PATCH' });

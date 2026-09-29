@@ -2,21 +2,24 @@ import { db } from '@/db/client';
 import { notifications, users } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
-type NotifType = 'work_assigned' | 'interim_requested' | 'interim_approved' | 'interim_rejected' | 'interim_created' | 'absence_declared' | 'absence_ended';
+type NotifType =
+  | 'work_assigned' | 'interim_requested' | 'interim_approved' | 'interim_rejected'
+  | 'interim_created' | 'absence_declared' | 'absence_ended'
+  | 'feedback_received' | 'interim_response_needed' | 'interim_accepted' | 'interim_declined';
 
-export async function notify(userId: string, type: NotifType, title: string, message: string, link?: string) {
-  await db.insert(notifications).values({ userId, type, title, message, link: link ?? null });
+export async function notify(userId: string, type: NotifType, title: string, message: string, link?: string, entityId?: string) {
+  await db.insert(notifications).values({ userId, type, title, message, link: link ?? null, entityId: entityId ?? null });
 }
 
-export async function notifyMany(userIds: string[], type: NotifType, title: string, message: string, link?: string) {
+export async function notifyMany(userIds: string[], type: NotifType, title: string, message: string, link?: string, entityId?: string) {
   const uniqueIds = [...new Set(userIds)];
   if (uniqueIds.length === 0) return;
-  await db.insert(notifications).values(uniqueIds.map((userId) => ({ userId, type, title, message, link: link ?? null })));
+  await db.insert(notifications).values(uniqueIds.map((userId) => ({ userId, type, title, message, link: link ?? null, entityId: entityId ?? null })));
 }
 
-export async function notifyAllAdmins(type: NotifType, title: string, message: string, link?: string) {
+export async function notifyAllAdmins(type: NotifType, title: string, message: string, link?: string, entityId?: string) {
   const admins = await db.select().from(users).where(eq(users.isAdmin, true));
-  await notifyMany(admins.map((a) => a.id), type, title, message, link);
+  await notifyMany(admins.map((a) => a.id), type, title, message, link, entityId);
 }
 
 export async function listForUser(userId: string) {

@@ -5,6 +5,8 @@ import logo from '@/assets/sonatrach-logo.png';
 import { getSessionUser, logout, subscribeSession, userInitials } from '@/session';
 import type { LucideIcon } from 'lucide-react';
 import { listNotifications, markAllNotificationsRead, markNotificationRead, type AppNotification } from '@/notifications';
+import { acceptInterim, declineInterim } from '@/interims';
+import { refreshSession } from '@/session';
 
 export const sonatrachLogo = logo;
 // 1. Ajout de 'profile' au type PageKey
@@ -289,14 +291,45 @@ function NotificationBell() {
   }, []);
 
   async function onOpenItem(n: AppNotification) {
-    if (!n.read) {
-      await markNotificationRead(n.id);
-      setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
-      setUnread((u) => Math.max(0, u - 1));
-    }
-    setOpen(false);
-    if (n.link) navigate(n.link);
+  if (n.type === 'interim_response_needed') return;
+  if (!n.read) {
+    await markNotificationRead(n.id);
+    setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
+    setUnread((u) => Math.max(0, u - 1));
   }
+  setOpen(false);
+  if (n.link) navigate(n.link);
+}
+
+  /*async function respondInterim(n: AppNotification, action: 'accept' | 'decline') {
+    if (!n.entityId) return;
+    try {
+      if (action === 'accept') await acceptInterim(n.entityId);
+      else await declineInterim(n.entityId);
+      await markNotificationRead(n.id);
+      setItems((prev) => prev.filter((i) => i.id !== n.id));
+      setUnread((u) => Math.max(0, u - 1));
+      await refreshSession();
+    } catch {
+      
+    }
+  }*/
+ async function respondInterim(n: AppNotification, action: 'accept' | 'decline') {
+  if (!n.entityId) return;
+  try {
+    if (action === 'accept') await acceptInterim(n.entityId);
+    else await declineInterim(n.entityId);
+  } catch (err: any) {
+    // Log utile, mais on continue : l'état a peut-être déjà été traité ailleurs.
+    console.warn('[interim] réponse échouée :', err?.response?.status, err?.response?.data);
+  } finally {
+    // ✅ Quoi qu'il arrive : on retire la notif et on rafraîchit la session.
+    await markNotificationRead(n.id).catch(() => {});
+    setItems((prev) => prev.filter((i) => i.id !== n.id));
+    setUnread((u) => Math.max(0, u - 1));
+    await refreshSession().catch(() => {});
+  }
+}
 
   async function onMarkAllRead() {
     await markAllNotificationsRead();
@@ -328,18 +361,37 @@ function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-400">Aucune notification.</p>}
             {items.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => onOpenItem(n)}
-                className={`flex w-full flex-col items-start gap-0.5 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50 ${!n.read ? 'bg-orange-50/40' : ''}`}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <span className={`text-xs font-bold ${!n.read ? 'text-slate-900' : 'text-slate-600'}`}>{n.title}</span>
-                  {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sonatrach" />}
+              n.type === 'interim_response_needed' ? (
+                <div key={n.id} className="border-b border-slate-50 bg-orange-50/40 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900">{n.title}</span>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sonatrach" />
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-5 text-slate-600">{n.message}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button onClick={() => respondInterim(n, 'accept')} className="rounded-md bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-emerald-700">
+                      Accepter
+                    </button>
+                    <button onClick={() => respondInterim(n, 'decline')} className="rounded-md border border-red-300 px-3 py-1 text-[11px] font-bold text-red-600 hover:bg-red-50">
+                      Refuser
+                    </button>
+                  </div>
+                  <span className="mt-1.5 block text-[10px] text-slate-400">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
                 </div>
-                <span className="text-[11px] leading-5 text-slate-500">{n.message}</span>
-                <span className="text-[10px] text-slate-400">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-              </button>
+              ) : (
+                <button
+                  key={n.id}
+                  onClick={() => onOpenItem(n)}
+                  className={`flex w-full flex-col items-start gap-0.5 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50 ${!n.read ? 'bg-orange-50/40' : ''}`}
+                >
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className={`text-xs font-bold ${!n.read ? 'text-slate-900' : 'text-slate-600'}`}>{n.title}</span>
+                    {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sonatrach" />}
+                  </div>
+                  <span className="text-[11px] leading-5 text-slate-500">{n.message}</span>
+                  <span className="text-[10px] text-slate-400">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                </button>
+              )
             ))}
           </div>
         </div>

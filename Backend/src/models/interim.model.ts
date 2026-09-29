@@ -1,6 +1,6 @@
 import { db } from '@/db/client';
 import { interimPeriods } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq , inArray } from 'drizzle-orm';
 
 export async function findActiveInterimForDelegating(delegatingUserId: string) {
   const rows = await db.select().from(interimPeriods)
