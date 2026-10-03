@@ -50,6 +50,21 @@ export async function createUserHandler(req: Request, res: Response) {
   if (!name || !username || !email) return res.status(400).json({ error: 'Nom, identifiant et email requis' });
   if (password.length < 8) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
   if (role && !ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+
+  // Aucun rôle => doit être un administrateur (compte hors organigramme)
+  if (!role && !isAdmin) {
+    return res.status(400).json({ error: "Un compte sans rôle doit avoir l'accès administrateur" });
+  }
+
+  // Rôle défini et différent de Directeur => organigramme obligatoire, au niveau du rôle
+  if (role && role !== 'directeur') {
+    if (!sousDirectionAbrv) return res.status(400).json({ error: 'La sous-direction est requise pour ce rôle' });
+    if (['chef_departement', 'chef_service', 'employe'].includes(role) && !departementAbrv)
+      return res.status(400).json({ error: 'Le département est requis pour ce rôle' });
+    if (['chef_service', 'employe'].includes(role) && !serviceAbrv)
+      return res.status(400).json({ error: 'Le service est requis pour ce rôle' });
+  }
+
   if (await findUserByIdentifier(username)) return res.status(409).json({ error: 'Identifiant déjà utilisé' });
   if (await findUserByEmail(email)) return res.status(409).json({ error: 'Email déjà utilisé' });
 
@@ -78,6 +93,24 @@ export async function updateUserHandler(req: Request, res: Response) {
   const orgChanged = ['sousDirectionAbrv', 'departementAbrv', 'serviceAbrv'].some((k) => req.body?.[k] !== undefined);
 
   if (role !== undefined && role && !ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+
+  // Valide l'état résultant (rôle final + admin final + organigramme final)
+  const finalRole = role !== undefined ? role : current.role;
+  const finalIsAdmin = isAdmin !== undefined ? isAdmin : current.isAdmin;
+  const finalSousDirection = req.body?.sousDirectionAbrv !== undefined ? (str(req.body.sousDirectionAbrv) || null) : current.sousDirectionAbrv;
+  const finalDepartement = req.body?.departementAbrv !== undefined ? (str(req.body.departementAbrv) || null) : current.departementAbrv;
+  const finalService = req.body?.serviceAbrv !== undefined ? (str(req.body.serviceAbrv) || null) : current.serviceAbrv;
+
+  if (!finalRole && !finalIsAdmin) {
+    return res.status(400).json({ error: "Un compte sans rôle doit avoir l'accès administrateur" });
+  }
+  if (finalRole && finalRole !== 'directeur') {
+    if (!finalSousDirection) return res.status(400).json({ error: 'La sous-direction est requise pour ce rôle' });
+    if (['chef_departement', 'chef_service', 'employe'].includes(finalRole) && !finalDepartement)
+      return res.status(400).json({ error: 'Le département est requis pour ce rôle' });
+    if (['chef_service', 'employe'].includes(finalRole) && !finalService)
+      return res.status(400).json({ error: 'Le service est requis pour ce rôle' });
+  }
 
   if (name !== undefined || email !== undefined || isAdmin !== undefined) {
     await db.update(users).set({

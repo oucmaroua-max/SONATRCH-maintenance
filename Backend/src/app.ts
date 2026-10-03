@@ -21,11 +21,16 @@ app.post('/api/works', requireAuth, workCtrl.createWork);
 app.get('/api/works/:id', requireAuth, workCtrl.getWork);
 app.patch('/api/works/:id', requireAuth, workCtrl.updateWork);
 app.post('/api/works/:id/feedback', requireAuth, workCtrl.addFeedback);
-
+/*
 app.get('/api/notifications', requireAuth, notifCtrl.list);
 app.patch('/api/notifications/:id/read', requireAuth, notifCtrl.markOneRead);
 app.patch('/api/notifications/read-all', requireAuth, notifCtrl.markAllReadHandler);
+*/
 
+app.get('/api/notifications', requireAuth, notifCtrl.list);
+app.patch('/api/notifications/:id/read', requireAuth, notifCtrl.markOneRead);
+app.delete('/api/notifications/:id', requireAuth, notifCtrl.remove);
+app.delete('/api/notifications', requireAuth, notifCtrl.removeAll);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

@@ -5,5 +5,5 @@ export type AppNotification = {
 };
 
 export const listNotifications = () => api<{ notifications: AppNotification[]; unreadCount: number }>('/api/notifications');
-export const markNotificationRead = (id: string) => api(`/api/notifications/${id}/read`, { method: 'PATCH' });
-export const markAllNotificationsRead = () => api('/api/notifications/read-all', { method: 'PATCH' });
+export const deleteNotification = (id: string) => api(`/api/notifications/${id}`, { method: 'DELETE' });
+export const deleteAllNotifications = () => api('/api/notifications', { method: 'DELETE' });

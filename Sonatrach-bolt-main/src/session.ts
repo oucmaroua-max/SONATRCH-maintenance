@@ -2,9 +2,10 @@ import { api, getActingInterimId, getToken, setActingInterimId, setToken } from 
 import type { UserRole } from '@/types';
 
 export type SessionUser = {
-  id: string; name: string; identifier: string; role: UserRole; isAdmin: boolean;
+  id: string; name: string; identifier: string; role: UserRole; hasRole: boolean; isAdmin: boolean;
   sousDirectionAbrv: string | null; departementAbrv: string | null; serviceAbrv: string | null;
 };
+
 export type ActiveInterim = {
   id: string; startDate: string; endDate: string; reason: string | null;
   delegatingUser: {
@@ -28,7 +29,7 @@ export const ROLE_TO_API: Record<string, string> = {
 };
 
 const GUEST: SessionUser = {
-  id: '', name: 'Invité', identifier: '', role: 'Technicien', isAdmin: false,
+  id: '', name: 'Invité', identifier: '', role: 'Technicien', hasRole: false, isAdmin: false,
   sousDirectionAbrv: null, departementAbrv: null, serviceAbrv: null,
 };
 
@@ -40,7 +41,7 @@ type ApiUser = {
 function toSessionUser(u: ApiUser): SessionUser {
   return {
     id: u.id, name: u.name, identifier: u.username,
-    role: (u.role && ROLE_FROM_API[u.role]) || 'Technicien', isAdmin: u.isAdmin,
+    role: (u.role && ROLE_FROM_API[u.role]) || 'Technicien', hasRole: Boolean(u.role), isAdmin: u.isAdmin,
     sousDirectionAbrv: u.sousDirectionAbrv, departementAbrv: u.departementAbrv, serviceAbrv: u.serviceAbrv,
   };
 }

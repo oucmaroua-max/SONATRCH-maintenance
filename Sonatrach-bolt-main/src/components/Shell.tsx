@@ -4,7 +4,7 @@ import { Brand } from '@/components/Brand';
 import logo from '@/assets/sonatrach-logo.png';
 import { getSessionUser, logout, subscribeSession, userInitials } from '@/session';
 import type { LucideIcon } from 'lucide-react';
-import { listNotifications, markAllNotificationsRead, markNotificationRead, type AppNotification } from '@/notifications';
+import { deleteAllNotifications, deleteNotification, listNotifications, type AppNotification } from '@/notifications';
 import { acceptInterim, declineInterim } from '@/interims';
 import { refreshSession } from '@/session';
 
@@ -224,10 +224,13 @@ export function Header({ active }: { active: PageKey }) {
 
           {/* Retour à l'espace travaux depuis l'admin, sinon déconnexion normale. */}
           <button
-            onClick={() => (admin ? navigate('dashboard') : onLogout())}
+            onClick={() => {
+              if (admin && user.hasRole) navigate('dashboard');
+              else void onLogout();
+            }}
             className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-sonatrach lg:inline-flex"
           >
-            {admin ? <>Retour à l'espace travaux</> : <><LogOut size={16} /> Déconnecter</>}
+            {admin && user.hasRole ? <>Retour à l'espace travaux</> : <><LogOut size={16} /> Déconnecter</>}
           </button>
           <button className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
             {open ? <X size={20} /> : <Menu size={20} />}
@@ -251,10 +254,14 @@ export function Header({ active }: { active: PageKey }) {
             );
           })}
           <button
-            onClick={() => { setOpen(false); if (admin) navigate('dashboard'); else void onLogout(); }}
+            onClick={() => {
+              setOpen(false);
+              if (admin && user.hasRole) navigate('dashboard');
+              else void onLogout();
+            }}
             className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-slate-100 px-3 py-3 text-left text-sm font-semibold text-slate-700"
           >
-            {admin ? "Retour à l'espace travaux" : <><LogOut size={16} /> Déconnecter</>}
+            {admin && user.hasRole ? "Retour à l'espace travaux" : <><LogOut size={16} /> Déconnecter</>}
           </button>
         </div>
       )}
@@ -291,14 +298,13 @@ function NotificationBell() {
   }, []);
 
   async function onOpenItem(n: AppNotification) {
-  if (n.type === 'interim_response_needed') return;
-  if (!n.read) {
-    await markNotificationRead(n.id);
-    setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
-    setUnread((u) => Math.max(0, u - 1));
-  }
+  if (n.type === 'interim_response_needed' && !n.read) return;
+  const link = n.link;
+  setItems((prev) => prev.filter((i) => i.id !== n.id));
+  if (!n.read) setUnread((u) => Math.max(0, u - 1));
   setOpen(false);
-  if (n.link) navigate(n.link);
+  try { await deleteNotification(n.id); } catch { /* déjà retirée visuellement, tant pis si l'appel échoue */ }
+  if (link) navigate(link);
 }
 
   /*async function respondInterim(n: AppNotification, action: 'accept' | 'decline') {
@@ -319,23 +325,20 @@ function NotificationBell() {
   try {
     if (action === 'accept') await acceptInterim(n.entityId);
     else await declineInterim(n.entityId);
-  } catch (err: any) {
-    // Log utile, mais on continue : l'état a peut-être déjà été traité ailleurs.
-    console.warn('[interim] réponse échouée :', err?.response?.status, err?.response?.data);
-  } finally {
-    // ✅ Quoi qu'il arrive : on retire la notif et on rafraîchit la session.
-    await markNotificationRead(n.id).catch(() => {});
+    await deleteNotification(n.id);
     setItems((prev) => prev.filter((i) => i.id !== n.id));
     setUnread((u) => Math.max(0, u - 1));
-    await refreshSession().catch(() => {});
+    await refreshSession();
+  } catch {
+    /* l'erreur reste silencieuse ici, la liste se rafraîchira au prochain cycle */
   }
 }
 
-  async function onMarkAllRead() {
-    await markAllNotificationsRead();
-    setItems((prev) => prev.map((i) => ({ ...i, read: true })));
-    setUnread(0);
-  }
+  async function onClearAll() {
+  await deleteAllNotifications();
+  setItems([]);
+  setUnread(0);
+}
 
   return (
     <div className="relative" ref={ref}>
@@ -352,16 +355,16 @@ function NotificationBell() {
         <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-bold text-slate-900">Notifications</p>
-            {unread > 0 && (
-              <button onClick={onMarkAllRead} className="text-xs font-semibold text-sonatrach hover:underline">
-                Tout marquer comme lu
-              </button>
+            {items.length > 0 && (
+            <button onClick={onClearAll} className="text-xs font-semibold text-sonatrach hover:underline">
+             Tout effacer
+             </button>
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 && <p className="px-4 py-8 text-center text-sm text-slate-400">Aucune notification.</p>}
             {items.map((n) => (
-              n.type === 'interim_response_needed' ? (
+               n.type === 'interim_response_needed' && !n.read ? (
                 <div key={n.id} className="border-b border-slate-50 bg-orange-50/40 px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-900">{n.title}</span>

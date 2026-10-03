@@ -10,9 +10,9 @@ import { AdminUserFormPage } from '@/pages/admin/AdminUserFormPage';
 import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage';
 import { AdminOrgStructurePage } from '@/pages/admin/AdminOrgStructurePage';
 import { AppShell, navigate } from '@/components/Shell';
-import { getSessionUser, isLoggedIn, refreshSession, subscribeSession } from '@/session';
 import { AdminInterimsPage } from '@/pages/admin/AdminInterimsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { getSessionUser, isLoggedIn, refreshSession, subscribeSession } from '@/session';
 
 
 function getPath() { return window.location.pathname.replace(/^\//, ''); }
@@ -43,7 +43,16 @@ function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  useEffect(() => { void refreshSession(); }, []);
+  useEffect(() => {
+  void refreshSession().then(() => {
+    const user = getSessionUser();
+    const p = getPath();
+    // Un admin hors organigramme qui arrive sur l'accueil/dashboard est redirigé vers l'administration.
+    if (user.isAdmin && !user.hasRole && (p === '' || p === 'dashboard')) {
+      navigate('admin-users');
+    }
+  });
+}, []);
 
   useEffect(() => {
     document.title = path.startsWith('orders/') ? 'Détail du travail | Sonatrach'

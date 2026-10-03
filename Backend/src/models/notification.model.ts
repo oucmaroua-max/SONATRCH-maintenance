@@ -17,9 +17,10 @@ export async function notifyMany(userIds: string[], type: NotifType, title: stri
   await db.insert(notifications).values(uniqueIds.map((userId) => ({ userId, type, title, message, link: link ?? null, entityId: entityId ?? null })));
 }
 
-export async function notifyAllAdmins(type: NotifType, title: string, message: string, link?: string, entityId?: string) {
+export async function notifyAllAdmins(type: NotifType, title: string, message: string, link?: string, entityId?: string, excludeUserId?: string) {
   const admins = await db.select().from(users).where(eq(users.isAdmin, true));
-  await notifyMany(admins.map((a) => a.id), type, title, message, link, entityId);
+  const recipientIds = admins.map((a) => a.id).filter((id) => id !== excludeUserId);
+  await notifyMany(recipientIds, type, title, message, link, entityId);
 }
 
 export async function listForUser(userId: string) {
@@ -37,4 +38,12 @@ export async function markRead(userId: string, id: string) {
 
 export async function markAllRead(userId: string) {
   await db.update(notifications).set({ read: true }).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+}
+
+export async function deleteOne(userId: string, id: string) {
+  await db.delete(notifications).where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+}
+
+export async function deleteAll(userId: string) {
+  await db.delete(notifications).where(eq(notifications.userId, userId));
 }

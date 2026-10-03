@@ -1,5 +1,4 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, KeyRound, Mail, ShieldAlert, User as UserIcon, UserCog } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { api } from '@/api';
 import { listAssignableUsers } from '@/works';
@@ -9,6 +8,7 @@ import { listInterims, requestInterim, type Interim } from '@/interims';
 import { getSessionUser, refreshSession } from '@/session';
 import type { User } from '@/types';
 import { endInterimEarly, listMyInterims as listMyInterimsApi } from '@/interims';
+import { AlertTriangle, ArrowLeft, Briefcase, CalendarClock, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldAlert, User as UserIcon, UserCog } from 'lucide-react';
 
 type OrgResponse = {
   sousDirections: { abrv: string; name: string }[];
@@ -139,6 +139,9 @@ function ChangePasswordCard() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -169,19 +172,69 @@ function ChangePasswordCard() {
       <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="mb-1.5 block text-sm font-bold text-slate-700">Mot de passe actuel</span>
-          <input required type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100" />
+          <div className="relative">
+            <input
+              required
+              type={showCurrent ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full rounded-lg border-slate-300 pr-11 text-sm focus:border-sonatrach focus:ring-orange-100"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrent((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label={showCurrent ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </label>
+
         <label className="block">
           <span className="mb-1.5 block text-sm font-bold text-slate-700">Nouveau mot de passe</span>
-          <input required type="password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100" />
+          <div className="relative">
+            <input
+              required
+              type={showNew ? 'text' : 'password'}
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full rounded-lg border-slate-300 pr-11 text-sm focus:border-sonatrach focus:ring-orange-100"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNew((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label={showNew ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </label>
+
         <label className="block">
           <span className="mb-1.5 block text-sm font-bold text-slate-700">Confirmer le nouveau mot de passe</span>
-          <input required type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100" />
+          <div className="relative">
+            <input
+              required
+              type={showConfirm ? 'text' : 'password'}
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-lg border-slate-300 pr-11 text-sm focus:border-sonatrach focus:ring-orange-100"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label={showConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </label>
+
         {error && <p className="text-xs font-semibold text-red-600 sm:col-span-2">{error}</p>}
         {done && <p className="text-xs font-semibold text-emerald-600 sm:col-span-2">Mot de passe mis à jour.</p>}
         <div className="sm:col-span-2">

@@ -32,7 +32,7 @@ export function AdminUserFormPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<Role>('Employé');
+  const [role, setRole] = useState<Role | ''>('Employé');
   const [status, setStatus] = useState<UserStatus>('pending');
   const [isAdmin, setIsAdmin] = useState(false);
   const [orgSelection, setOrgSelection] = useState({ sub_direction: '', department: '', service: '' });
@@ -67,33 +67,45 @@ export function AdminUserFormPage() {
     })();
   }, [isEdit, editId]);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setFormError(null);
-    setSaving(true);
-    try {
-      if (isEdit) {
-        await updateUser(editId, {
-          name, email, role, isAdmin,
-          sub_direction: orgSelection.sub_direction,
-          department: orgSelection.department,
-          service: orgSelection.service,
-        });
-      } else {
-        await createUser({
-          name, username, email, password, role, isAdmin,
-          sub_direction: orgSelection.sub_direction,
-          department: orgSelection.department,
-          service: orgSelection.service,
-        });
-      }
-      setSaved(true);
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Enregistrement impossible');
-    } finally {
-      setSaving(false);
+ async function submit(e: FormEvent) {
+  e.preventDefault();
+  setFormError(null);
+
+  if (!role && !isAdmin) {
+    setFormError("Un compte sans rôle doit avoir l'accès administrateur activé.");
+    return;
+  }
+  if (role && role !== 'Directeur') {
+    if (!orgSelection.sub_direction) { setFormError('La sous-direction est requise pour ce rôle.'); return; }
+    if (['Chef de département', 'Chef de service', 'Employé'].includes(role) && !orgSelection.department) {
+      setFormError('Le département est requis pour ce rôle.'); return;
+    }
+    if (['Chef de service', 'Employé'].includes(role) && !orgSelection.service) {
+      setFormError('Le service est requis pour ce rôle.'); return;
     }
   }
+
+  setSaving(true);
+  try {
+    const payload = {
+      name, email, isAdmin,
+      role: role || undefined,
+      sub_direction: orgSelection.sub_direction,
+      department: orgSelection.department,
+      service: orgSelection.service,
+    };
+    if (isEdit) {
+      await updateUser(editId, payload);
+    } else {
+      await createUser({ ...payload, username, password });
+    }
+    setSaved(true);
+  } catch (e) {
+    setFormError(e instanceof Error ? e.message : 'Enregistrement impossible');
+  } finally {
+    setSaving(false);
+  }
+}
 
   async function submitPasswordReset(e: FormEvent) {
     e.preventDefault();
@@ -235,20 +247,35 @@ export function AdminUserFormPage() {
               <div className="mt-4 space-y-4">
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-bold text-slate-700">Rôle <span className="text-red-500">*</span></span>
-                  <select value={role} onChange={(e) => setRole(e.target.value as Role)}
+                  <select value={role} onChange={(e) => setRole(e.target.value as Role | '')}
                     className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100">
+                    <option value="">Aucun (hors organigramme)</option>
                     {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
-                <OrgCascadeSelect
-                  subDirection={orgSelection.sub_direction}
-                  department={orgSelection.department}
-                  service={orgSelection.service}
-                  subDirections={org.sousDirections.map((sd) => ({ id: sd.abrv, name: sd.name }))}
-                  departments={org.departements.map((d) => ({ id: d.abrv, name: d.name, sub_direction_id: d.sousDirectionAbrv ?? '' }))}
-                  services={org.services.map((s) => ({ id: s.abrv, name: s.name, department_id: s.departementAbrv ?? '' }))}
-                  onChange={setOrgSelection}
-                />
+
+                {!role && (
+                  <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs font-semibold text-blue-800">
+                    Sans rôle attribué, ce compte doit avoir l'accès administrateur activé ci-dessous.
+                  </p>
+                )}
+                {role === 'Directeur' && (
+                  <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs font-semibold text-blue-800">
+                    Le Directeur supervise toute la direction ; l'organigramme n'est pas requis pour ce rôle.
+                  </p>
+                )}
+
+                {role && role !== 'Directeur' && (
+                  <OrgCascadeSelect
+                    subDirection={orgSelection.sub_direction}
+                    department={orgSelection.department}
+                    service={orgSelection.service}
+                    subDirections={org.sousDirections.map((sd) => ({ id: sd.abrv, name: sd.name }))}
+                    departments={org.departements.map((d) => ({ id: d.abrv, name: d.name, sub_direction_id: d.sousDirectionAbrv ?? '' }))}
+                    services={org.services.map((s) => ({ id: s.abrv, name: s.name, department_id: s.departementAbrv ?? '' }))}
+                    onChange={setOrgSelection}
+                  />
+                )}
               </div>
             </section>
 

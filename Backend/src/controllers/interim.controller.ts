@@ -98,11 +98,11 @@ export async function requestByUser(req: Request, res: Response) {
 
   const [delegating] = await db.select().from(users).where(eq(users.id, delegatingUserId));
 
-  await notifyAllAdmins(
-    'interim_requested', "Nouvelle demande d'intérim",
-    `${delegating?.name ?? 'Un utilisateur'} propose ${delegate.name} comme remplaçant (${startDate} → ${endDate}).`,
-    'admin-interims', created.id,
-  );
+ await notifyAllAdmins(
+  'interim_requested', "Nouvelle demande d'intérim",
+  `${delegating?.name ?? 'Un utilisateur'} propose ${delegate.name} comme remplaçant (${startDate} → ${endDate}).`,
+  'admin-interims', created.id, delegatingUserId,
+);
 
   await notify(
   delegateUserId, 'interim_response_needed', "Demande d'intérim à valider",
@@ -173,8 +173,8 @@ export async function acceptByDelegate(req: Request, res: Response) {
   const [delegate] = await db.select().from(users).where(eq(users.id, userId));
   const message = `${delegate?.name ?? 'Le remplaçant'} a accepté l'intérim (${interim.startDate} → ${interim.endDate}).`;
 
-  await notifyAllAdmins('interim_accepted', 'Intérim accepté', message, 'admin-interims', interim.id);
-  await notify(interim.delegatingUserId, 'interim_accepted', "Votre demande d'intérim a été acceptée", message, 'profile', interim.id);
+ await notifyAllAdmins('interim_accepted', 'Intérim accepté', message, 'admin-interims', interim.id, interim.delegatingUserId);
+await notify(interim.delegatingUserId, 'interim_accepted', "Votre demande d'intérim a été acceptée", message, 'profile', interim.id);
 
   res.json(updated);
 }
@@ -197,9 +197,8 @@ export async function declineByDelegate(req: Request, res: Response) {
   const [delegate] = await db.select().from(users).where(eq(users.id, userId));
   const message = `${delegate?.name ?? 'Le remplaçant'} a refusé l'intérim (${interim.startDate} → ${interim.endDate}).`;
 
-  await notifyAllAdmins('interim_declined', 'Intérim refusé', message, 'admin-interims', interim.id);
+  await notifyAllAdmins('interim_declined', 'Intérim refusé', message, 'admin-interims', interim.id, interim.delegatingUserId);
   await notify(interim.delegatingUserId, 'interim_declined', "Votre demande d'intérim a été refusée", message, 'profile', interim.id);
-
   res.json(updated);
 }
 
@@ -220,8 +219,7 @@ export async function endEarly(req: Request, res: Response) {
   const message = `${actor?.name ?? 'Un utilisateur'} a mis fin à l'intérim (${interim.startDate} → ${interim.endDate}) avant son terme.`;
 
   await notify(otherPartyId, 'interim_ended_early', 'Intérim terminé', message, 'profile', interim.id);
-  await notifyAllAdmins('interim_ended_early', 'Intérim terminé avant son terme', message, 'admin-interims', interim.id);
-
+  await notifyAllAdmins('interim_ended_early', 'Intérim terminé avant son terme', message, 'admin-interims', interim.id, userId);
   res.json(updated);
 }
 
