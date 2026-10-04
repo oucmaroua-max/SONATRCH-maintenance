@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '@/db/client';
-import { eq , inArray, desc , sql  } from 'drizzle-orm';
+import { eq , inArray, desc , sql,and  } from 'drizzle-orm';
 import { assignableRoleFor, isAssigneeInScope, visibleServiceAbrvs, type OrgScope } from '@/utils/orgScope';
 import { resolveEffectiveScope } from '@/utils/effectiveScope';
 import type { Role } from '@/types';
@@ -18,6 +18,33 @@ async function nextCode() {
   const all = await db.select().from(works);
   return `OT-${year}-${String(1000 + all.length + 1)}`;
 }
+
+const ROLE_DEPTH: Record<string, number> = { directeur: 0, sous_directeur: 1, chef_departement: 2, chef_service: 3, employe: 4 };
+
+async function filterByHierarchy(rows: any[], scope: { role: string | null }, userId: string) {
+  if (!scope.role || scope.role === 'directeur') return rows;
+
+  // Un employé ne voit que les travaux où il est directement impliqué
+  // (initiateur, assigné principal, ou affecté parmi plusieurs employés).
+  if (scope.role === 'employe') {
+    const workIds = rows.map((r) => r.id);
+    const extraRows = workIds.length ? await db.select().from(workAssignees).where(inArray(workAssignees.workId, workIds)) : [];
+    const myExtraWorkIds = new Set(extraRows.filter((r) => r.userId === userId).map((r) => r.workId));
+    return rows.filter((r) => r.initiatorId === userId || r.assignedToId === userId || myExtraWorkIds.has(r.id));
+  }
+
+  const ownDepth = ROLE_DEPTH[scope.role] ?? 99;
+  const assigneeIds = [...new Set(rows.map((r) => r.assignedToId).filter(Boolean))];
+  const assigneeRows = assigneeIds.length ? await db.select().from(users).where(inArray(users.id, assigneeIds)) : [];
+  const roleById = new Map(assigneeRows.map((u) => [u.id, u.role]));
+  return rows.filter((r) => {
+    if (r.initiatorId === userId) return true;
+    const assigneeRole = r.assignedToId ? roleById.get(r.assignedToId) : null;
+    if (!assigneeRole) return true;
+    return (ROLE_DEPTH[assigneeRole] ?? 99) >= ownDepth;
+  });
+}
+
 async function enrichWorks(rows: any[]) {
   if (rows.length === 0) return [];
   const userIds = [...new Set(rows.flatMap((r) => [r.assignedToId, r.initiatorId].filter(Boolean)))];
@@ -86,6 +113,9 @@ export async function listWorks(req: Request, res: Response) {
     rows = svcIds.length ? await db.select().from(works).where(inArray(works.serviceId, svcIds)).orderBy(desc(works.createdAt)) : [];
   }
 
+  rows = await filterByHierarchy(rows, scope, (req as any).auth.userId);
+
+  rows = await autoMarkLate(rows);
   if (!includeArchived) rows = rows.filter((w) => !w.archived);
 
   res.json({ works: await enrichWorks(rows), actingInterim });
@@ -122,6 +152,7 @@ export async function listAssignableUsers(req: Request, res: Response) {
 export async function getWork(req: Request, res: Response) {
   const [work] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!work) return res.status(404).json({ error: 'Travail introuvable' });
+  await autoMarkLate([work]);
   const [enriched] = await enrichWorks([work]);
   const feedbackRows = await db.select().from(workFeedback).where(eq(workFeedback.workId, work.id)).orderBy(desc(workFeedback.createdAt));
   const authorIds = [...new Set(feedbackRows.map((f) => f.authorId))];
@@ -197,10 +228,11 @@ export async function createWork(req: Request, res: Response) {
 }
 
 export async function updateWork(req: Request, res: Response) {
-  const { scope } = await resolveEffectiveScope(req);
+  const userId = (req as any).auth.userId;
   const [current] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!current) return res.status(404).json({ error: 'Travail introuvable' });
-  if (!(await canAccessWork(scope, current))) return res.status(403).json({ error: 'Hors de votre périmètre' });
+  if (!(await canEditWork(userId, current)))
+    return res.status(403).json({ error: "Seuls le responsable ayant confié ce travail et les personnes affectées peuvent le modifier" });
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (req.body?.status !== undefined) {
@@ -218,13 +250,11 @@ export async function updateWork(req: Request, res: Response) {
 }
 
 export async function addFeedback(req: Request, res: Response) {
-  const { scope } = await resolveEffectiveScope(req);
-  if (!scope.role || !MANAGEMENT_ROLES.includes(scope.role))
-    return res.status(403).json({ error: 'Rôle non autorisé à donner un avis' });
-
+  const userId = (req as any).auth.userId;
   const [work] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!work) return res.status(404).json({ error: 'Travail introuvable' });
-  if (!(await canAccessWork(scope, work))) return res.status(403).json({ error: 'Hors de votre périmètre' });
+  if (work.initiatorId !== userId)
+    return res.status(403).json({ error: "Seul le responsable qui a confié ce travail peut donner un avis" });
 
   const decision = str(req.body?.decision);
   const comment = str(req.body?.comment);
@@ -232,7 +262,7 @@ export async function addFeedback(req: Request, res: Response) {
   if (!DECISIONS.includes(decision) || !comment) return res.status(400).json({ error: 'Décision et commentaire requis' });
 
   const [created] = await db.insert(workFeedback).values({
-    workId: work.id, authorId: (req as any).auth.userId, decision: decision as any, comment,
+    workId: work.id, authorId: userId, decision: decision as any, comment,
   }).returning();
 
   const approved = decision === 'valide' || decision === 'valide_reserves';
@@ -243,7 +273,6 @@ export async function addFeedback(req: Request, res: Response) {
     updatedAt: new Date(),
   }).where(eq(works.id, work.id));
 
-  // Notifie la ou les personnes qui ont réalisé le travail (responsable + employés affectés)
   const extraRows = await db.select().from(workAssignees).where(eq(workAssignees.workId, work.id));
   const recipients = [...new Set([work.assignedToId, ...extraRows.map((r) => r.userId)].filter(Boolean))] as string[];
 
@@ -260,4 +289,23 @@ export async function addFeedback(req: Request, res: Response) {
   );
 
   res.status(201).json(created);
+}
+
+async function autoMarkLate(rows: any[]) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = rows.filter((w) => w.dueDate && w.dueDate < today && (w.status === 'en_attente' || w.status === 'en_cours'));
+  if (overdue.length > 0) {
+    await Promise.all(overdue.map((w) =>
+      db.update(works).set({ status: 'en_retard', updatedAt: new Date() }).where(eq(works.id, w.id))
+    ));
+    overdue.forEach((w) => { w.status = 'en_retard'; });
+  }
+  return rows;
+}
+
+async function canEditWork(userId: string, work: any) {
+  if (work.initiatorId === userId || work.assignedToId === userId) return true;
+  const extra = await db.select().from(workAssignees)
+    .where(and(eq(workAssignees.workId, work.id), eq(workAssignees.userId, userId)));
+  return extra.length > 0;
 }

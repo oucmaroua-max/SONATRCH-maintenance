@@ -49,7 +49,7 @@ export async function visibleServiceAbrvs(scope: OrgScope): Promise<string[] | '
     return svcs.filter((s) => s.departementAbrv === scope.departementAbrv).map((s) => s.abrv);
   }
 
-  if (scope.role === 'chef_service') {
+  if (scope.role === 'chef_service' || scope.role === 'employe') {
     return scope.serviceAbrv ? [scope.serviceAbrv] : [];
   }
 

@@ -12,7 +12,7 @@ export type ApiWork = {
   id: string; code: string; title: string; unit: string | null; equipment: string | null; permit: string | null;
   descriptionPrevue: string; observation: string | null; priority: string; status: string;
   workerCount: number; progress: number; startDate: string; dueDate: string | null;
-  assignedToId: string | null; serviceId: string; createdAt: string;
+  assignedToId: string | null; initiatorId: string; serviceId: string; createdAt: string;
   serviceName: string | null; serviceAbrv: string | null; departmentName: string | null;
   assigneeName: string | null; assigneeNames: string[]; initiatorName: string | null;
 };

@@ -164,13 +164,12 @@ export function Header({ active }: { active: PageKey }) {
   const admin = isAdminPage(active);
 
   // Liens applicatifs : ceux de l'espace admin OU ceux de l'espace travaux, jamais mélangés.
-  const navLinks = admin
-    ? adminLinks
-    : [
-        ...links.filter(link => link.key !== 'home'),
-        ...(user.isAdmin ? [{ key: 'admin-users' as PageKey, label: 'Administration' }] : []),
-      ];
-
+ const navLinks = admin
+  ? adminLinks
+  : [
+      ...links.filter(link => link.key !== 'home' && !(link.key === 'new-order' && user.hasRole && user.role === 'Technicien')),
+      ...(user.isAdmin ? [{ key: 'admin-users' as PageKey, label: 'Administration' }] : []),
+    ];
   // 2) vraie déconnexion
   const onLogout = async () => { await logout(); navigate('login'); };
   // Où mène le logo/marque selon l'espace dans lequel on se trouve.

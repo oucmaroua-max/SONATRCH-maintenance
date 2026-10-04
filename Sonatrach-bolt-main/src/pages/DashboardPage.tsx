@@ -325,8 +325,9 @@ function CompletedWorkReview({ works, statusCounts, onOpenFeedback }: {
 }
 
 function PriorityOrders({ works }: { works: ApiWork[] }) {
-  const priorityWorks = works.filter((w) => priorityLabel(w) === 'Haute' || priorityLabel(w) === 'Critique');
-
+  const priorityWorks = works.filter((w) =>
+    priorityLabel(w) === 'Haute' || priorityLabel(w) === 'Critique' || statusLabel(w) === 'En retard'
+  );
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -471,8 +472,8 @@ export function DashboardPage() {
   const active = works.filter((w) => statusLabel(w) === 'En cours').length;
   const late = works.filter((w) => statusLabel(w) === 'En retard').length;
   const openCount = works.filter((w) => statusLabel(w) !== 'Terminé' && statusLabel(w) !== 'Annulé').length;
-  const completed = works.filter((w) => statusLabel(w) === 'Terminé');
-
+  // Seul le responsable qui a confié le travail (l'initiateur) voit la revue correspondante.
+  const completed = works.filter((w) => statusLabel(w) === 'Terminé' && w.initiatorId === user.id);
   const statusCounts = useMemo(() => {
     const counts: Record<WorkStatusLabel, number> = { 'En attente': 0, 'En cours': 0, 'Terminé': 0, 'En retard': 0 };
     works.forEach((w) => {

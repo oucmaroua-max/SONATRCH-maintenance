@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardPenLine } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AppShell, navigate } from '@/components/Shell';
 import { api } from '@/api';
 import { getEffectiveOrgScope, getEffectiveRole, ROLE_TO_API } from '@/session';
@@ -52,6 +52,11 @@ export function NewWorkOrderPage() {
   const depLocked = roleApi === 'chef_departement' || roleApi === 'chef_service';
   const svcLocked = roleApi === 'chef_service';
 
+  // Champs obligatoires selon le rôle : seul le niveau que le rôle peut choisir est requis.
+  const requireSousDirection = roleApi === 'directeur';
+  const requireDepartment = roleApi === 'sous_directeur';
+  const requireService = roleApi === 'chef_departement';
+
   // Chargement initial : organigramme + pré-remplissage du périmètre propre
   useEffect(() => {
     (async () => {
@@ -88,8 +93,20 @@ export function NewWorkOrderPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    if (!title || !description || !service || assignedToIds.length === 0 || !startDate) {
+    if (!title || !description || assignedToIds.length === 0 || !startDate) {
       setFormError('Merci de remplir tous les champs obligatoires.');
+      return;
+    }
+    if (requireSousDirection && !sousDirection) {
+      setFormError('Merci de sélectionner la sous-direction.');
+      return;
+    }
+    if (requireDepartment && !department) {
+      setFormError('Merci de sélectionner le département.');
+      return;
+    }
+    if (requireService && !service) {
+      setFormError('Merci de sélectionner le service.');
       return;
     }
     setSaving(true);
@@ -106,6 +123,17 @@ export function NewWorkOrderPage() {
       setSaving(false);
     }
   }
+
+  const [assigneeMenuOpen, setAssigneeMenuOpen] = useState(false);
+  const assigneeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (assigneeMenuRef.current && !assigneeMenuRef.current.contains(e.target as Node)) setAssigneeMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   return (
     <AppShell active="new-order">
@@ -189,8 +217,8 @@ export function NewWorkOrderPage() {
                       <p className="mb-2 text-sm font-bold text-slate-800">Partie concernée par le travail</p>
                       <div className="grid gap-6 md:grid-cols-3">
                         <label>
-                          <span className="mb-2 block text-xs font-semibold text-slate-600">Sous-direction {!sdLocked && <span className="text-red-500">*</span>}</span>
-                          <select required disabled={sdLocked} value={sousDirection}
+                          <span className="mb-2 block text-xs font-semibold text-slate-600">Sous-direction {requireSousDirection && <span className="text-red-500">*</span>}</span>
+                          <select required={requireSousDirection} disabled={sdLocked} value={sousDirection}
                             onChange={(e) => { setSousDirection(e.target.value); setDepartment(''); setService(''); }}
                             className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100 disabled:bg-slate-100">
                             <option value="">— Sélectionner —</option>
@@ -198,8 +226,10 @@ export function NewWorkOrderPage() {
                           </select>
                         </label>
                         <label>
-                          <span className="mb-2 block text-xs font-semibold text-slate-600">Département {!depLocked && <span className="text-red-500">*</span>}</span>
-                          <select required disabled={depLocked || !sousDirection} value={department}
+                          <span className="mb-2 block text-xs font-semibold text-slate-600">
+                            Département {requireDepartment && <span className="text-red-500">*</span>}
+                          </span>
+                          <select required={requireDepartment} disabled={depLocked || !sousDirection} value={department}
                             onChange={(e) => { setDepartment(e.target.value); setService(''); }}
                             className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100 disabled:bg-slate-100">
                             <option value="">— Sélectionner —</option>
@@ -207,8 +237,10 @@ export function NewWorkOrderPage() {
                           </select>
                         </label>
                         <label>
-                          <span className="mb-2 block text-xs font-semibold text-slate-600">Service {!svcLocked && <span className="text-red-500">*</span>}</span>
-                          <select required disabled={svcLocked || !department} value={service}
+                          <span className="mb-2 block text-xs font-semibold text-slate-600">
+                            Service {requireService && <span className="text-red-500">*</span>}
+                          </span>
+                          <select required={requireService} disabled={svcLocked || !department} value={service}
                             onChange={(e) => setService(e.target.value)}
                             className="w-full rounded-lg border-slate-300 text-sm focus:border-sonatrach focus:ring-orange-100 disabled:bg-slate-100">
                             <option value="">— Sélectionner —</option>
@@ -225,22 +257,29 @@ export function NewWorkOrderPage() {
                       </span>
 
                       {roleApi === 'chef_service' ? (
-                        <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-300 p-2">
-                          {assignees.map((a) => {
-                            const checked = assignedToIds.includes(a.id);
-                            return (
-                              <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(e) => setAssignedToIds((prev) => e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id))}
-                                  className="h-4 w-4 rounded border-slate-300 text-sonatrach focus:ring-orange-100"
-                                />
-                                {a.name}
-                              </label>
-                            );
-                          })}
-                          {assignees.length === 0 && <p className="px-2 py-1.5 text-xs text-slate-400">Aucun employé disponible.</p>}
+                        <div className="relative" ref={assigneeMenuRef}>
+                          <button type="button" onClick={() => setAssigneeMenuOpen((v) => !v)}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-left text-sm focus:border-sonatrach focus:ring-orange-100">
+                            {assignedToIds.length === 0
+                              ? '— Sélectionner —'
+                              : `${assignedToIds.length} employé${assignedToIds.length > 1 ? 's' : ''} sélectionné${assignedToIds.length > 1 ? 's' : ''}`}
+                          </button>
+                          {assigneeMenuOpen && (
+                            <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-soft">
+                              {assignees.map((a) => {
+                                const checked = assignedToIds.includes(a.id);
+                                return (
+                                  <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+                                    <input type="checkbox" checked={checked}
+                                      onChange={(e) => setAssignedToIds((prev) => e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id))}
+                                      className="h-4 w-4 rounded border-slate-300 text-sonatrach focus:ring-orange-100" />
+                                    {a.name}
+                                  </label>
+                                );
+                              })}
+                              {assignees.length === 0 && <p className="px-2 py-1.5 text-xs text-slate-400">Aucun employé disponible.</p>}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <select required value={assignedToIds[0] ?? ''} onChange={(e) => setAssignedToIds(e.target.value ? [e.target.value] : [])}
