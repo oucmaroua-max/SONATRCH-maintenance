@@ -64,10 +64,10 @@ Elle permet de créer, affecter, suivre et valider des travaux de maintenance se
 ## 3. Architecture
 
 ```
-┌────────────────────┐   /api (proxy Vite)   ┌──────────────────────┐        ┌──────────────┐
-│  Frontend (React)  │ ───────────────────▶ │  Backend (Express)   │ ─────▶ │ PostgreSQL   │
-│  127.0.0.1:5173    │   Bearer <token>      │  127.0.0.1:3000      │ Drizzle│  (port 5177) │
-└────────────────────┘                       └──────────────────────┘        └──────────────┘
+┌────────────────────┐   /api (proxy Vite)        ┌──────────────────────┐         ┌──────────────┐
+│  Frontend (React)        │ ───────────────────▶ │  Backend (Express)         │ ─────▶│ PostgreSQL       │
+│  127.0.0.1:5173          │   Bearer <token>           │  127.0.0.1:3000                       │ Drizzle         │
+└────────────────────┘                            └──────────────────────┘         └──────────────┘
 ```
 
 - **Frontend** : SPA avec routage maison basé sur `history.pushState` (voir `App.tsx` et `navigate()` dans `Shell.tsx`). L'état de session est un store externe (`session.ts`) consommé via `useSyncExternalStore`.
@@ -122,7 +122,7 @@ Elle permet de créer, affecter, suivre et valider des travaux de maintenance se
 ### 6.1 Cloner et installer les dépendances
 
 ```bash
-git clone <url-du-depot>
+git clone https://github.com/oucmaroua-max/SONATRCH-maintenance
 cd <dossier-du-projet>
 
 cd Backend && npm install && cd ..
