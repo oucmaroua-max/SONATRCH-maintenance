@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, History, Lock, Mail, Pencil, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, History, Lock, Mail, Pencil, Save, ShieldCheck, User as UserIcon, X } from 'lucide-react';
 import { AppShell, navigate } from '@/components/Shell';
 import { RoleBadge, UserStatusBadge } from '@/components/ui/AdminBadges';
 import { roleFromApi } from '@/adminRoles';
@@ -40,6 +40,20 @@ export function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ---- AJOUT : état d'édition ----
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    username: '',
+    role: '',
+    status: '',
+    sub_direction: '',
+    department: '',
+    service: '',
+  });
+
   useEffect(() => {
     (async () => {
       try {
@@ -68,6 +82,43 @@ export function AdminUserDetailPage() {
 
   function roleLabel(role: string | null) {
     return role ? roleFromApi(role) : '—';
+  }
+
+  // ---- AJOUT : handlers d'édition ----
+  function startEdit() {
+    if (!user) return;
+    setEditForm({
+      name: user.name ?? '',
+      email: user.email ?? '',
+      username: user.username ?? '',
+      role: user.role ?? '',
+      status: user.status ?? '',
+      sub_direction: user.sub_direction ?? '',
+      department: user.department ?? '',
+      service: user.service ?? '',
+    });
+    setIsEditing(true);
+  }
+
+  function cancelEdit() {
+    setIsEditing(false);
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      const updated = await api<User>(`/api/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(editForm),
+      });
+      setUser(updated);
+      setIsEditing(false);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour');
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -126,10 +177,33 @@ export function AdminUserDetailPage() {
                   </div>
                 </div>
               </div>
-              <button onClick={() => navigate(`admin-user-form/${user.id}`)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">
-                <Pencil size={16} /> Éditer
-              </button>
+
+              {/* ---- AJOUT : boutons Éditer / Annuler / Enregistrer ---- */}
+              {!isEditing ? (
+                <button
+                  onClick={startEdit}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                >
+                  <Pencil size={16} /> Éditer
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={cancelEdit}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <X size={16} /> Annuler
+                  </button>
+                  <button
+                    onClick={saveEdit}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    <Save size={16} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -137,16 +211,99 @@ export function AdminUserDetailPage() {
             <h2 className="heading flex items-center gap-2 text-lg font-bold text-slate-900">
               <UserIcon size={18} /> Informations
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoItem label="Identifiant" value={user.username} mono />
-              <InfoItem label="Email" value={user.email} icon={<Mail size={13} />} />
-              <InfoItem label="Date de création" value={user.created_at} />
-              <InfoItem label="Sous-direction" value={sdName(user.sub_direction) ?? '—'} />
-              <InfoItem label="Département" value={depName(user.department) ?? '—'} />
-              <InfoItem label="Service" value={svcName(user.service) ?? '—'} />
-              {user.approved_by && <InfoItem label="Approuvé par" value={user.approved_by} />}
-              {user.approved_at && <InfoItem label="Approuvé le" value={user.approved_at} />}
-            </div>
+
+            {/* ---- AJOUT : formulaire d'édition inline ---- */}
+            {isEditing ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <EditField label="Nom">
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  />
+                </EditField>
+                <EditField label="Identifiant">
+                  <input
+                    type="text"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-sonatrach focus:outline-none"
+                  />
+                </EditField>
+                <EditField label="Email">
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  />
+                </EditField>
+                <EditField label="Rôle">
+                  <input
+                    type="text"
+                    value={editForm.role}
+                    onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  />
+                </EditField>
+                <EditField label="Statut">
+                  <input
+                    type="text"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  />
+                </EditField>
+                <EditField label="Sous-direction">
+                  <select
+                    value={editForm.sub_direction}
+                    onChange={(e) => setEditForm((f) => ({ ...f, sub_direction: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  >
+                    <option value="">—</option>
+                    {org.sousDirections.map((s) => (
+                      <option key={s.abrv} value={s.abrv}>{s.name}</option>
+                    ))}
+                  </select>
+                </EditField>
+                <EditField label="Département">
+                  <select
+                    value={editForm.department}
+                    onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  >
+                    <option value="">—</option>
+                    {org.departements.map((d) => (
+                      <option key={d.abrv} value={d.abrv}>{d.name}</option>
+                    ))}
+                  </select>
+                </EditField>
+                <EditField label="Service">
+                  <select
+                    value={editForm.service}
+                    onChange={(e) => setEditForm((f) => ({ ...f, service: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sonatrach focus:outline-none"
+                  >
+                    <option value="">—</option>
+                    {org.services.map((s) => (
+                      <option key={s.abrv} value={s.abrv}>{s.name}</option>
+                    ))}
+                  </select>
+                </EditField>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <InfoItem label="Identifiant" value={user.username} mono />
+                <InfoItem label="Email" value={user.email} icon={<Mail size={13} />} />
+                <InfoItem label="Date de création" value={user.created_at} />
+                <InfoItem label="Sous-direction" value={sdName(user.sub_direction) ?? '—'} />
+                <InfoItem label="Département" value={depName(user.department) ?? '—'} />
+                <InfoItem label="Service" value={svcName(user.service) ?? '—'} />
+                {user.approved_by && <InfoItem label="Approuvé par" value={user.approved_by} />}
+                {user.approved_at && <InfoItem label="Approuvé le" value={user.approved_at} />}
+              </div>
+            )}
           </section>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -229,6 +386,16 @@ function InfoItem({ label, value, mono, icon }: { label: string; value: string; 
         {icon && <span className="mr-1.5 inline-flex align-middle text-slate-400">{icon}</span>}
         {value}
       </p>
+    </div>
+  );
+}
+
+// ---- AJOUT : petit wrapper pour les champs d'édition ----
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="mt-1">{children}</div>
     </div>
   );
 }

@@ -4,7 +4,9 @@ import { interimPeriods, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import type { OrgScope } from './orgScope';
 
-export async function resolveEffectiveScope(req: Request): Promise<{ scope: OrgScope; actingInterim: { id: string; delegatingName: string } | null }> {
+export type ActingInterimInfo = { id: string; delegatingUserId: string; delegatingName: string };
+
+export async function resolveEffectiveScope(req: Request): Promise<{ scope: OrgScope; actingInterim: ActingInterimInfo | null }> {
   const auth = (req as any).auth;
   const interimId = req.headers['x-acting-interim'] as string | undefined;
 
@@ -18,7 +20,7 @@ export async function resolveEffectiveScope(req: Request): Promise<{ scope: OrgS
             role: delegating.role, sousDirectionAbrv: delegating.sousDirectionAbrv,
             departementAbrv: delegating.departementAbrv, serviceAbrv: delegating.serviceAbrv,
           },
-          actingInterim: { id: interim.id, delegatingName: delegating.name },
+          actingInterim: { id: interim.id, delegatingUserId: delegating.id, delegatingName: delegating.name },
         };
       }
     }

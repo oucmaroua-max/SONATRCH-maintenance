@@ -12,16 +12,12 @@ export type UserRole =
 export type FeedbackDecision =
   | 'Validé'
   | 'Validé avec réserves'
-  | 'Non validé'
-  | 'À reprendre'
-  | 'Non conforme HSE';
+  | 'Non validé';
 
 export const FEEDBACK_DECISIONS: FeedbackDecision[] = [
   'Validé',
   'Validé avec réserves',
   'Non validé',
-  'À reprendre',
-  'Non conforme HSE',
 ];
 
 export function isFeedbackApproved(decision: FeedbackDecision) {

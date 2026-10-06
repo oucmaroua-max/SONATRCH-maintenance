@@ -5,7 +5,6 @@ export const PRIORITY_FROM_API: Record<string, string> = { critique: 'Critique',
 export const PRIORITY_TO_API: Record<string, string> = { Critique: 'critique', Haute: 'haute', Normale: 'normale' };
 export const DECISION_TO_API: Record<string, string> = {
   'Validé': 'valide', 'Validé avec réserves': 'valide_reserves', 'Non validé': 'non_valide',
-  'À reprendre': 'a_reprendre', 'Non conforme HSE': 'non_conforme_hse',
 };
 
 export type ApiWork = {

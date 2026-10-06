@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { activity } from '@/data';
 import { AppShell, navigate } from '@/components/Shell';
-import { canReviewCompletedWork, getEffectiveRole, getSessionUser, subscribeSession } from '@/session';
+import { canReviewCompletedWork, getActingInterim, getEffectiveRole, getSessionUser, subscribeSession } from '@/session';
 import { addFeedback, listWorks } from '@/works';
 import { DECISION_TO_API, PRIORITY_FROM_API, STATUS_FROM_API, type ApiWork } from '@/workTypes';
 import { FEEDBACK_DECISIONS, isFeedbackApproved, type FeedbackDecision } from '@/types';
@@ -448,6 +448,7 @@ function BottomStats() {
 
 export function DashboardPage() {
   const user = useSyncExternalStore(subscribeSession, getSessionUser);
+  const acting = useSyncExternalStore(subscribeSession, getActingInterim);
   const canReview = canReviewCompletedWork(getEffectiveRole());
 
   const [works, setWorks] = useState<ApiWork[]>([]);
@@ -472,8 +473,14 @@ export function DashboardPage() {
   const active = works.filter((w) => statusLabel(w) === 'En cours').length;
   const late = works.filter((w) => statusLabel(w) === 'En retard').length;
   const openCount = works.filter((w) => statusLabel(w) !== 'Terminé' && statusLabel(w) !== 'Annulé').length;
-  // Seul le responsable qui a confié le travail (l'initiateur) voit la revue correspondante.
-  const completed = works.filter((w) => statusLabel(w) === 'Terminé' && w.initiatorId === user.id);
+  // Hors intérim : seul l'initiateur réel voit sa revue.
+  // En intérim : l'intérimaire ne voit que les travaux que la personne absente
+  // a elle-même confiés — jamais ceux initiés par quelqu'un d'autre, même visibles dans le périmètre.
+  const completed = works.filter((w) => {
+    if (statusLabel(w) !== 'Terminé') return false;
+    const reviewerId = acting?.delegatingUser?.id ?? user.id;
+    return w.initiatorId === reviewerId;
+  });
   const statusCounts = useMemo(() => {
     const counts: Record<WorkStatusLabel, number> = { 'En attente': 0, 'En cours': 0, 'Terminé': 0, 'En retard': 0 };
     works.forEach((w) => {

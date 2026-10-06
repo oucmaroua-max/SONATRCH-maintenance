@@ -23,25 +23,15 @@ const ROLE_DEPTH: Record<string, number> = { directeur: 0, sous_directeur: 1, ch
 
 async function filterByHierarchy(rows: any[], scope: { role: string | null }, userId: string) {
   if (!scope.role || scope.role === 'directeur') return rows;
-
-  // Un employé ne voit que les travaux où il est directement impliqué
-  // (initiateur, assigné principal, ou affecté parmi plusieurs employés).
-  if (scope.role === 'employe') {
-    const workIds = rows.map((r) => r.id);
-    const extraRows = workIds.length ? await db.select().from(workAssignees).where(inArray(workAssignees.workId, workIds)) : [];
-    const myExtraWorkIds = new Set(extraRows.filter((r) => r.userId === userId).map((r) => r.workId));
-    return rows.filter((r) => r.initiatorId === userId || r.assignedToId === userId || myExtraWorkIds.has(r.id));
-  }
-
   const ownDepth = ROLE_DEPTH[scope.role] ?? 99;
   const assigneeIds = [...new Set(rows.map((r) => r.assignedToId).filter(Boolean))];
   const assigneeRows = assigneeIds.length ? await db.select().from(users).where(inArray(users.id, assigneeIds)) : [];
   const roleById = new Map(assigneeRows.map((u) => [u.id, u.role]));
   return rows.filter((r) => {
-    if (r.initiatorId === userId) return true;
+    if (r.initiatorId === userId) return true; // toujours voir ce qu'on a soi-même confié
     const assigneeRole = r.assignedToId ? roleById.get(r.assignedToId) : null;
     if (!assigneeRole) return true;
-    return (ROLE_DEPTH[assigneeRole] ?? 99) >= ownDepth;
+    return (ROLE_DEPTH[assigneeRole] ?? 99) >= ownDepth; // masque les travaux confiés à un niveau au-dessus
   });
 }
 
@@ -149,19 +139,31 @@ export async function listAssignableUsers(req: Request, res: Response) {
   res.json(filtered.map((u) => ({ id: u.id, name: u.name, role: u.role })));
 }
 
+// getWork retourne maintenant canEdit + canFeedback
 export async function getWork(req: Request, res: Response) {
+  const userId = (req as any).auth.userId;
+  const { actingInterim } = await resolveEffectiveScope(req);
+
   const [work] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!work) return res.status(404).json({ error: 'Travail introuvable' });
   await autoMarkLate([work]);
   const [enriched] = await enrichWorks([work]);
+
+  const allowedIds = [userId, ...(actingInterim ? [actingInterim.delegatingUserId] : [])];
+  const canEdit = await canEditWork(allowedIds, work);
+
+  const canFeedback = actingInterim
+    ? work.initiatorId === actingInterim.delegatingUserId
+    : work.initiatorId === userId;
+
   const feedbackRows = await db.select().from(workFeedback).where(eq(workFeedback.workId, work.id)).orderBy(desc(workFeedback.createdAt));
   const authorIds = [...new Set(feedbackRows.map((f) => f.authorId))];
   const authors = authorIds.length ? await db.select().from(users).where(inArray(users.id, authorIds)) : [];
   const authorsById = new Map(authors.map((a) => [a.id, a]));
   const feedbacks = feedbackRows.map((f) => ({ ...f, authorName: authorsById.get(f.authorId)?.name ?? '—', authorRole: authorsById.get(f.authorId)?.role ?? null }));
-  res.json({ work: enriched, feedbacks });
-}
 
+  res.json({ work: enriched, feedbacks, canEdit, canFeedback });
+}
 export async function createWork(req: Request, res: Response) {
   const { scope } = await resolveEffectiveScope(req);
   const requiredAssigneeRole = assignableRoleFor(scope.role as Role | null);
@@ -227,11 +229,15 @@ export async function createWork(req: Request, res: Response) {
   res.status(201).json(created);
 }
 
+// ✅ REMPLACÉ : updateWork prend en compte l'intérim
 export async function updateWork(req: Request, res: Response) {
   const userId = (req as any).auth.userId;
+  const { actingInterim } = await resolveEffectiveScope(req);
   const [current] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!current) return res.status(404).json({ error: 'Travail introuvable' });
-  if (!(await canEditWork(userId, current)))
+
+  const allowedIds = [userId, ...(actingInterim ? [actingInterim.delegatingUserId] : [])];
+  if (!(await canEditWork(allowedIds, current)))
     return res.status(403).json({ error: "Seuls le responsable ayant confié ce travail et les personnes affectées peuvent le modifier" });
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
@@ -249,16 +255,25 @@ export async function updateWork(req: Request, res: Response) {
   res.json(updated);
 }
 
+// REMPLACÉ : addFeedback gère l'intérim + nouvelles décisions
 export async function addFeedback(req: Request, res: Response) {
   const userId = (req as any).auth.userId;
+  const { actingInterim } = await resolveEffectiveScope(req);
+
   const [work] = await db.select().from(works).where(eq(works.id, req.params.id));
   if (!work) return res.status(404).json({ error: 'Travail introuvable' });
-  if (work.initiatorId !== userId)
+
+  if (actingInterim) {
+    if (work.initiatorId !== actingInterim.delegatingUserId) {
+      return res.status(403).json({ error: "Vous ne pouvez donner un avis que sur les travaux confiés par la personne que vous remplacez" });
+    }
+  } else if (work.initiatorId !== userId) {
     return res.status(403).json({ error: "Seul le responsable qui a confié ce travail peut donner un avis" });
+  }
 
   const decision = str(req.body?.decision);
   const comment = str(req.body?.comment);
-  const DECISIONS = ['valide', 'valide_reserves', 'non_valide', 'a_reprendre', 'non_conforme_hse'];
+  const DECISIONS = ['valide', 'valide_reserves', 'non_valide'];
   if (!DECISIONS.includes(decision) || !comment) return res.status(400).json({ error: 'Décision et commentaire requis' });
 
   const [created] = await db.insert(workFeedback).values({
@@ -278,11 +293,9 @@ export async function addFeedback(req: Request, res: Response) {
 
   const DECISION_LABELS: Record<string, string> = {
     valide: 'Validé', valide_reserves: 'Validé avec réserves', non_valide: 'Non validé',
-    a_reprendre: 'À reprendre', non_conforme_hse: 'Non conforme HSE',
   };
   await notifyMany(
-    recipients,
-    'feedback_received',
+    recipients, 'feedback_received',
     approved ? 'Votre travail a été validé' : 'Retour sur votre travail',
     `${work.title} (${work.code}) — Décision : ${DECISION_LABELS[decision]}. ${comment}`,
     `orders/${work.id}`,
@@ -303,9 +316,10 @@ async function autoMarkLate(rows: any[]) {
   return rows;
 }
 
-async function canEditWork(userId: string, work: any) {
-  if (work.initiatorId === userId || work.assignedToId === userId) return true;
-  const extra = await db.select().from(workAssignees)
-    .where(and(eq(workAssignees.workId, work.id), eq(workAssignees.userId, userId)));
-  return extra.length > 0;
+// ✅ REMPLACÉ : canEditWork accepte désormais une liste d'identités autorisées
+// (utilisateur courant + éventuellement le délégant en cas d'intérim)
+async function canEditWork(allowedIds: string[], work: any) {
+  if (allowedIds.includes(work.initiatorId) || (work.assignedToId && allowedIds.includes(work.assignedToId))) return true;
+  const extra = await db.select().from(workAssignees).where(eq(workAssignees.workId, work.id));
+  return extra.some((e) => allowedIds.includes(e.userId));
 }

@@ -97,21 +97,23 @@ export function getEffectiveOrgScope() {
 }
 
 export async function login(identifier: string, password: string) {
-  exitInterim(); // évite qu'un résidu du compte précédent ne s'applique au nouveau compte
+  exitInterim();
+  activeInterims = []; // efface tout résidu du compte précédent avant de charger le nouveau
   const data = await api<{ token: string; user: ApiUser }>('/api/auth/login', {
     method: 'POST', body: JSON.stringify({ identifier, password }),
   });
   setToken(data.token);
   setUser(toSessionUser(data.user));
+  await refreshSession(); // recharge immédiatement les intérims propres à ce compte
 }
 
 export async function logout() {
   try { await api('/api/auth/logout', { method: 'POST' }); } catch { /* déconnexion locale quand même */ }
   setToken(null);
+  activeInterims = []; // vide le tableau pour que le prochain compte reparte propre
   exitInterim();
   setUser(GUEST);
 }
-
 export async function refreshSession() {
   if (!getToken()) return;
   try {
